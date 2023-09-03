@@ -5,9 +5,11 @@ using PluginAPI.Core.Attributes;
 using PluginAPI.Enums;
 using PluginAPI.Events;
 using Scp914;
+using System;
 using UnityEngine;
 using Utils;
 using static GunGame.GunGameEventCommand;
+using static GunGame.GunGameUtils;
 using static GunGame.Plugin;
 
 namespace GunGame
@@ -25,32 +27,34 @@ namespace GunGame
         {
             if (args.Player == null) return;
 
-            if (EventInProgress && AllPlayers.TryGetValue(args.Player, out var plrStats))
+            if (EventInProgress && AllPlayers.TryGetValue(args.Player.UserId, out var plrStats))
             {
                 var plr = args.Player;
                 plr.ClearInventory();
-                var atckr = args.Attacker;
-                if (atckr != null && atckr != plr /*&& atckr.IsAlive*/)
+
+                if (args.Attacker != null && args.Attacker != plr /*&& atckr.IsAlive*/)
                 {
-                    if (plrStats.lastHit[1] is Player)
+                    plr.AddItem(ItemType.Medkit);
+                    var atckr = args.Attacker;
+                    if (Player.TryGet(plrStats.lastHit[1], out Player assistPlr) && plrStats.lastHit[1] != plr.UserId)
                     {
-                        AddScore(plrStats.lastHit[1]);
-                        plrStats.lastHit[1].ReceiveHint("Assist", 1);
+                        GG.AddScore(assistPlr);
+                        assistPlr.ReceiveHint("Assist", 1);
                     }
-                    plrStats.lastHit = new Player[] { null, null };
+                    plrStats.lastHit = new string[] { null, null };
 
                     if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
                     {
-                        TriggerWin(atckr);
+                        GG.TriggerWin(atckr);
                         return;
                     }
-                    if (AllPlayers.TryGetValue(atckr, out var atckrStats))
+                    if (AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                     {
                         plr.ReceiveHint($"{atckr.Nickname} killed you ({AllWeapons.Count - atckrStats.Score})", 2);
 
                         if (atckrStats.IsNtfTeam != plrStats.IsNtfTeam || FFA)
                         {
-                            AddScore(atckr);
+                            GG.AddScore(atckr);
                             atckr.ReceiveHint($"You killed {plr.Nickname} ({AllWeapons.Count - plrStats.Score})", 2);
                         }
                         else
@@ -71,12 +75,12 @@ namespace GunGame
                     System.Random rnd = new System.Random();
                     credits += (byte)rnd.Next(1, 25); //Adds random amount of credits
                     if (credits >= Mathf.Clamp(Player.Count * 10, 30, 100)) //Rolls next spawns if credits high enough, based on player count
-                        RollSpawns();
+                        GG.RollSpawns();
                 }
-                else RollSpawns();
+                else GG.RollSpawns();
                 MEC.Timing.CallDelayed(1, () =>
                 {
-                    SpawnPlayer(plr);
+                    GG.SpawnPlayer(plr);
                 });
             }
         }
@@ -86,21 +90,20 @@ namespace GunGame
         {
             if (!EventInProgress || args.Target == null)
                 return;
-            if (!AllPlayers.TryGetValue(args.Target, out var trgtInfo))
+            if (!AllPlayers.TryGetValue(args.Target.UserId, out var trgtInfo))
                 return;
             if (FFA)
-                trgtInfo.hit(args.Player);
+                trgtInfo.hit(args.Player.UserId);
             else if (args.Player == null)
                 return;
-            if (AllPlayers.TryGetValue(args.Player, out var plrInfo) && (plrInfo.IsNtfTeam != trgtInfo.IsNtfTeam))
-                trgtInfo.hit(args.Player);
+            if (AllPlayers.TryGetValue(args.Player.UserId, out var plrInfo) && (plrInfo.IsNtfTeam != trgtInfo.IsNtfTeam))
+                trgtInfo.hit(args.Player.UserId);
         }
-
 
         [PluginEvent(ServerEventType.PlayerDropItem)]
         public bool DropItem(PlayerDropItemEvent args) //Stops items from being dropped
         {
-            if (EventInProgress && !args.Player.IsTutorial)
+            if (EventInProgress && !args.Player.IsTutorial && args.Item.ItemTypeId != ItemType.Medkit)
                 return false;
 
             return true;
@@ -139,11 +142,14 @@ namespace GunGame
         {
             if (EventInProgress)
             {
-                AssignTeam(args.Player);
-                args.Player.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+                Player plr = args.Player;
+                GG.AssignTeam(plr);
+                plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+                if (plr.DoNotTrack)
+                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.</color>", 15);
                 MEC.Timing.CallDelayed(3, () =>
                 {
-                    SpawnPlayer(args.Player);
+                    GG.SpawnPlayer(plr);
                 });
             }
         }
@@ -151,8 +157,14 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerLeft)]
         public void PlayerLeft(PlayerLeftEvent args) //Removing player that left from list
         {
-            if (EventInProgress)
-                RemovePlayer(args.Player);
+            if (EventInProgress && AllPlayers.TryGetValue(args.Player.UserId, out PlrInfo plrInfo))
+            {
+                if (plrInfo.IsNtfTeam)
+                    Tntf--;
+                else
+                    Tchaos--;
+                //GG.RemovePlayer(args.Player);
+            }
         }
 
         [PluginEvent(ServerEventType.PlayerChangeRole)]
@@ -165,8 +177,8 @@ namespace GunGame
                 {
                     if (newR == RoleTypeId.Spectator)
                     {
-                        AssignTeam(args.Player);
-                        SpawnPlayer(args.Player);
+                        GG.AssignTeam(args.Player);
+                        GG.SpawnPlayer(args.Player);
                     }
                 });
             }
@@ -208,7 +220,7 @@ namespace GunGame
             MEC.Timing.CallDelayed(0.1f, () =>
             {
                 plr.ClearInventory();
-                GiveGun(plr);
+                GG.GiveGun(plr);
                 plr.ReferenceHub.playerEffectsController.ChangeState<MovementBoost>(25, 99999, false); //Movement effects
                 plr.ReferenceHub.playerEffectsController.ChangeState<Scp1853>(200, 99999, false);
                 plr.AddItem(ItemType.ArmorHeavy);
@@ -279,15 +291,17 @@ namespace GunGame
             var plr = args.Player;
             plr.ReceiveHint("Cheater", 1);
             //AddScore(plr);
-            TriggerWin(plr);
+            try
+            {
+                GG.TriggerWin(plr);
+            }
+            catch (Exception ex) { plr.ReceiveHint($"Something broke: {ex.Message}\n{ex.InnerException}\n{ex.StackTrace}\n{ex.Source}", 15); }
         }
 
         [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
         public void GunUnload(PlayerUnloadWeaponEvent args)
         {
-            AddScore(args.Player);
+            GG.AddScore(args.Player);
         }
-
-
     }
 }
