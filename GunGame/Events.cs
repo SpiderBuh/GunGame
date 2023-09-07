@@ -22,26 +22,32 @@ namespace GunGame
             EventInProgress = false;
         }
 
+        //[PluginEvent(ServerEventType.WaitingForPlayers)]
+        //public void OnRoundStart()
+        //{
+            
+        //}
+
         [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
         public void PlayerDeath(PlayerDyingEvent args)
         {
             if (args.Player == null) return;
+            var atckr = args.Attacker ?? Server.Instance;
 
             if (EventInProgress && AllPlayers.TryGetValue(args.Player.UserId, out var plrStats))
             {
                 var plr = args.Player;
                 plr.ClearInventory();
 
-                if (args.Attacker != null && args.Attacker != plr /*&& atckr.IsAlive*/)
+                if (!(atckr.IsServer || atckr == plr))
                 {
-                    plr.AddItem(ItemType.Medkit);
-                    var atckr = args.Attacker;
-                    if (Player.TryGet(plrStats.lastHit[1], out Player assistPlr) && plrStats.lastHit[1] != plr.UserId)
+                    plr.AddItem(ItemType.Medkit);                    
+                    if (!FFA && (Player.TryGet(plrStats.lastHit[1], out Player assistPlr) && plrStats.lastHit[1] != plr.UserId))
                     {
                         GG.AddScore(assistPlr);
                         assistPlr.ReceiveHint("Assist", 1);
                     }
-                    plrStats.lastHit = new string[] { null, null };
+                    plrStats.lastHit = new string[] { Server.Instance.UserId, Server.Instance.UserId };
 
                     if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
                     {
@@ -88,22 +94,20 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerDamage)]
         public void PlayerDamageEvent(PlayerDamageEvent args)
         {
-            if (!EventInProgress || args.Target == null)
+            var tgt = args.Target ?? Server.Instance;
+            var plr = args.Player ?? Server.Instance;
+
+            if (!EventInProgress || !AllPlayers.TryGetValue(tgt.UserId, out var trgtInfo))
                 return;
-            if (!AllPlayers.TryGetValue(args.Target.UserId, out var trgtInfo))
-                return;
-            if (FFA)
-                trgtInfo.hit(args.Player.UserId);
-            else if (args.Player == null)
-                return;
-            if (AllPlayers.TryGetValue(args.Player.UserId, out var plrInfo) && (plrInfo.IsNtfTeam != trgtInfo.IsNtfTeam))
-                trgtInfo.hit(args.Player.UserId);
+
+            if (FFA || AllPlayers.TryGetValue(plr.UserId, out var plrInfo) && (plrInfo.IsNtfTeam != trgtInfo.IsNtfTeam))
+                trgtInfo.hit(plr.UserId);         
         }
 
         [PluginEvent(ServerEventType.PlayerDropItem)]
         public bool DropItem(PlayerDropItemEvent args) //Stops items from being dropped
         {
-            if (EventInProgress && !args.Player.IsTutorial && args.Item.ItemTypeId != ItemType.Medkit)
+            if (EventInProgress && (!args.Player.IsTutorial || args.Item.ItemTypeId != ItemType.Medkit))
                 return false;
 
             return true;
@@ -112,7 +116,7 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerThrowItem)]
         public bool ThrowItem(PlayerThrowItemEvent args) //Stops items from being throwed
         {
-            if (EventInProgress && !args.Player.IsTutorial)
+            if (EventInProgress && (!args.Player.IsTutorial))
                 return false;
             return true;
         }
@@ -120,7 +124,7 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerDropAmmo)]
         public bool DropAmmo(PlayerDropAmmoEvent args) //Stops ammo from being dropped 
         {
-            if (EventInProgress && !args.Player.IsTutorial)
+            if (EventInProgress && (!args.Player.IsTutorial))
                 return false;
             return true;
         }
@@ -129,7 +133,7 @@ namespace GunGame
         public bool PlayerPickup(PlayerSearchPickupEvent args)
         {
             var itemID = args.Item.Info.ItemId;
-            if (EventInProgress && !args.Player.IsTutorial)
+            if (EventInProgress && (!args.Player.IsTutorial))
                 if (itemID == ItemType.Painkillers || itemID == ItemType.Medkit || itemID == ItemType.Adrenaline || itemID == ItemType.GrenadeFlash) //Allows only certain pickups
                     return true;
                 else return false;
@@ -187,7 +191,7 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerInteractElevator)]
         public bool PlayerInteractElevator(PlayerInteractElevatorEvent args)
         {
-            if (EventInProgress && !args.Player.IsTutorial)
+            if (EventInProgress && (!args.Player.IsTutorial))
                 return false;
             return true;
         }
@@ -197,7 +201,7 @@ namespace GunGame
         {
             if (EventInProgress)
             {
-                args.Target.Health = 1;
+                args.Target.ReferenceHub.playerEffectsController.ChangeState("SeveredHands", 1);
                 ExplosionUtils.ServerExplode(args.Player.ReferenceHub);
             }
         }
@@ -205,7 +209,7 @@ namespace GunGame
         [PluginEvent(ServerEventType.TeamRespawn)]
         public bool RespawnCancel(TeamRespawnEvent args)
         {
-            if (Plugin.EventInProgress)
+            if (EventInProgress)
                 return false;
             return true;
         }
@@ -285,7 +289,7 @@ namespace GunGame
         }
 
 
-        [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
+        /*[PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
         public void CoinFlip(PlayerCoinFlipEvent args)
         {
             var plr = args.Player;
@@ -302,6 +306,6 @@ namespace GunGame
         public void GunUnload(PlayerUnloadWeaponEvent args)
         {
             GG.AddScore(args.Player);
-        }
+        }*/
     }
 }

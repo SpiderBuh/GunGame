@@ -63,10 +63,7 @@ namespace GunGame
                 Spawns.Clear();
                 Tntf = 0;
                 Tchaos = 0;
-                               
-                if (zone == FacilityZone.Surface)                
-                    Spawns = GG.SurfaceSpawns.ToList();                
-
+                                              
                 SpecialTier = new List<Gat>();
                 if (arguments.Count >= 3)
                     if (arguments.ElementAt(2).ToUpper().Equals("Y"))
@@ -83,30 +80,7 @@ namespace GunGame
                     if (arguments.ElementAt(4).ToUpper().Equals("Y"))
                         AllWeapons.ShuffleList();
 
-                byte z = 0;
-                foreach (RoomName roomName in GG.LRNames)
-                {
-                    if (RoomIdUtils.TryFindRoom(GG.LRNames[z], FacilityZone.None, RoomShape.Undefined, out var foundRoom))
-                        LoadingRoom[z] = foundRoom.transform.position + foundRoom.transform.rotation * GG.LROffset[z];
-                    else LoadingRoom[z] = new Vector3(-15.5f, 1014.5f, -31.5f);
-
-                    z++;
-                }
-
-                foreach (string room in GG.BlacklistRoomNames) //Gets blacklisted room objects for current game
-                    BlacklistRooms.AddRange(RoomIdentifier.AllRoomIdentifiers.Where(r => r.Name.ToString().Equals(room)));
-
-                foreach (var door in DoorVariant.AllDoors) //Adds every door in specified zone to spawns list
-                {
-                    if (door.IsInZone(zone) && !(door is ElevatorDoor || door is CheckpointDoor) && !door.Rooms.Any(x => BlacklistRooms.Any(y => y == x)))
-                    {
-                        Vector3 doorpos = door.gameObject.transform.position;
-                        Spawns.Add(new Vector3(doorpos.x, doorpos.y + 1, doorpos.z));
-                        door.NetworkTargetState = true;
-                    }
-                }
-
-                GG.RollSpawns(); //Shuffles spawns
+                GG.LoadSpawns();
 
                 foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
                 {
@@ -150,12 +124,13 @@ namespace GunGame
                 DecontaminationController.Singleton.enabled = false;
                 Round.Start();
                 Server.FriendlyFire = FFA;
+                GameStarted = true;
                 response = $"GunGame event has begun. \nFFA: {FFA} | Zone: {zone} | Levels: {NumTarget}";
                 return true;
             }
             catch (Exception e)
             {
-                response = $"An error has occurred: {e.Message}";
+                response = $"An error has occurred: {e.Message}\n{e.TargetSite}\n{e.StackTrace}";
                 Round.IsLocked = false;
                 return false;
             }

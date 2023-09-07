@@ -1,28 +1,34 @@
 ﻿using CustomPlayerEffects;
+using Interactables.Interobjects.DoorUtils;
+using Interactables.Interobjects;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
 using InventorySystem.Items.Usables.Scp330;
 using MapGeneration;
 using PlayerRoles;
+using PlayerStatsSystem;
 using PluginAPI.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static GunGame.Plugin;
+using GameCore;
+using Mirror;
+using static Org.BouncyCastle.Asn1.Cmp.Challenge;
 
 namespace GunGame
 {
     public class GunGameUtils
     {
-
+        public static bool GameStarted = false;
         public static bool FFA = true;
         public static FacilityZone zone = FacilityZone.LightContainment;
 
         public static short[] InnerPosition = new short[0];
         public static Dictionary<string, PlrInfo> AllPlayers = new Dictionary<string, PlrInfo>(); //plrInfo stores: (NTF = true | Chaos = false) and Score
-                                                                                                  
+
         public class PlrInfo
         {
             public bool IsNtfTeam { get; set; }
@@ -72,7 +78,7 @@ namespace GunGame
         public readonly List<string> BlacklistRoomNames = new List<string>() { "LczCheckpointA", "LczCheckpointB", /*"LczClassDSpawn",*/ "HczCheckpointToEntranceZone", "HczCheckpointToEntranceZone", "HczWarhead", "Hcz049", "Hcz106", "Hcz079", "Lcz173" };
         public static List<RoomIdentifier> BlacklistRooms = new List<RoomIdentifier>();
 
-        public static List<Vector3> Spawns = new List<Vector3>(); //List of all possible spawnpoints
+        public static Dictionary<Vector3, Vector2Int> Spawns = new Dictionary<Vector3, Vector2Int>(); //List of all possible spawnpoints
         public static Vector3 NTFSpawn; //Current NTF spawn
         public static Vector3 ChaosSpawn; //Current chaos spawn
         public static Vector3[] LoadingRoom = new Vector3[] { new Vector3(-15.5f, 1014.5f, -31.5f), new Vector3(-15.5f, 1014.5f, -31.5f), new Vector3(-15.5f, 1014.5f, -31.5f), new Vector3(-15.5f, 1014.5f, -31.5f) }; //Zone loading room
@@ -114,7 +120,7 @@ namespace GunGame
         };
 
         public List<Gat> Tier3 = new List<Gat>() {
-            new Gat(ItemType.GunA7), 
+            new Gat(ItemType.GunA7),
 
             new Gat(ItemType.GunCOM18, 0x12A),
 
@@ -142,7 +148,7 @@ namespace GunGame
 
             new Gat(ItemType.GrenadeHE, 2),
 
-            new Gat(ItemType.SCP018, 2),
+            new Gat(ItemType.SCP018, 5),
 
             new Gat(ItemType.SCP330), // pink candy
         };
@@ -162,7 +168,7 @@ namespace GunGame
             byte Ts = (byte)Math.Round((double)SpecialTier.Count / NumGuns * num);
             byte T4 = (byte)(num - T1 - T2 - T3 - Ts);
 
-            AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3/*S*/, T3)).Concat(ProcessTier(Tier4/*T*/, T4)).ToList();
+            AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).ToList();
             foreach (var special in ProcessTier(SpecialTier, Ts))
                 AllWeapons.Insert(new System.Random().Next(AllWeapons.Count), special);
         }
@@ -181,31 +187,79 @@ namespace GunGame
             return outTier;
         }
 
-        public void RollSpawns(byte stop = 0)
-        {
-            NTFSpawn = Spawns.RandomItem();
-            ChaosSpawn = Spawns.RandomItem();
+        ///<summary>Find's vector's 2d grid position</summary>
+        public Vector2Int StampGrid(Vector3 spawn) => new Vector2Int((int)spawn.x >> 4, (int)spawn.z >> 4); // Divide by 16
 
-            if (stop < MaxRetryCount && !FFA && Vector3.SqrMagnitude(NTFSpawn - ChaosSpawn) < MinSpawnDistanceSquared)
+        public void LoadSpawns(bool forceAll = false)
+        {
+            if (!GameStarted || forceAll)
             {
-                RollSpawns((byte)(stop + 1));
-                return;
+                byte z = 0;
+                foreach (RoomName roomName in LRNames)
+                {
+                    if (RoomIdUtils.TryFindRoom(LRNames[z], FacilityZone.None, RoomShape.Undefined, out var foundRoom))
+                        LoadingRoom[z] = foundRoom.transform.position + foundRoom.transform.rotation * LROffset[z];
+                    else LoadingRoom[z] = new Vector3(-15.5f, 1014.5f, -31.5f);
+
+                    z++;
+                }
+
+                foreach (string room in BlacklistRoomNames) //Gets blacklisted room objects for current game
+                    BlacklistRooms.AddRange(RoomIdentifier.AllRoomIdentifiers.Where(r => r.Name.ToString().Equals(room)));
             }
 
-            if (!FFA)
-                Cassie.Message(".G2", false, false, false);
+            if (zone == FacilityZone.Surface)
+                foreach (Vector3 spot in SurfaceSpawns)
+                    Spawns.Add(spot, StampGrid(spot));
 
-            credits = 0;
+            foreach (var door in DoorVariant.AllDoors) //Adds every door in specified zone to spawns list            
+                if (door.IsInZone(zone) && !(door is ElevatorDoor || door is CheckpointDoor) && !door.Rooms.Any(x => BlacklistRooms.Any(y => y == x)))
+                {
+                    Vector3 doorpos = door.gameObject.transform.position + new Vector3(0, 1, 0);
+                    Spawns.Add(doorpos, StampGrid(doorpos));
+                    door.NetworkTargetState = true;
+                }
+
+            RollSpawns();
         }
-        const float MinSpawnDistanceSquared = 625; // 25 * 25
-        const byte MaxRetryCount = 10;
+
+        public void RollSpawns(/*byte stop = 0*/) // Current system should be good for Teams, but meh FFA
+        {
+            HashSet<Vector2Int> blocked = new HashSet<Vector2Int>();
+            foreach (Player plr in Player.GetPlayers())
+                if (plr.IsAlive)
+                    blocked.Add(StampGrid(plr.Position));
+
+            //Dictionary<Vector3, Vector2Int> filteredSpawns = (Dictionary<Vector3, Vector2Int>)Spawns.Where(a => !blocked.Contains(a.Value));
+            Dictionary<Vector3, Vector2Int> filteredSpawns = new Dictionary<Vector3, Vector2Int>();                          
+                foreach (var ele in Spawns)
+                    if (!blocked.Contains(ele.Value))
+                    filteredSpawns.Add(ele.Key, ele.Value); 
+
+            var CS = filteredSpawns.ElementAt(new System.Random().Next(filteredSpawns.Count));
+            credits = 0;
+            ChaosSpawn = CS.Key;
+            if (FFA)
+                return;
+            NTFSpawn = filteredSpawns.Where(c => c.Value != CS.Value).ToList().RandomItem().Key;
+            Cassie.Message(".G2", false, false, false);
+
+            //if (stop < MaxRetryCount && (!FFA && Vector3.SqrMagnitude(NTFSpawn - ChaosSpawn) < MinSpawnDistanceSquared))
+            //{
+            //    RollSpawns((byte)(stop + 1), blocked, filteredSpawns);
+            //    return;
+            //}                           
+        }
+        //const float MinSpawnDistanceSquared = 750;
+        //const byte MaxRetryCount = 10;
 
         public void AssignTeam(Player plr) //Assigns player to team
         {
             if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial/* || AllPlayers.ContainsKey(plr.UserId)*/)
                 return;
-
-            AllPlayers.Add(plr.UserId, new PlrInfo((Tntf < Tchaos) && !FFA)); //Adds player to list, uses bool operations to determine teams
+            if (!AllPlayers.TryGetValue(plr.UserId, out PlrInfo plrInfo))
+                AllPlayers.Add(plr.UserId, new PlrInfo((Tntf < Tchaos) && !FFA)); //Adds player to list, uses bool operations to determine teams
+            else plrInfo.IsNtfTeam = (Tntf < Tchaos) && !FFA;
             if ((Tntf < Tchaos) && !FFA)
                 Tntf++;
             else
@@ -242,14 +296,16 @@ namespace GunGame
             foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
                 plr.AddAmmo(ammo, (ushort)plr.GetAmmoLimit(ammo));
             plr.SendBroadcast($"Guns left: {AllWeapons.Count - plrStats.Score}", 5);
-
-            plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 2 + 4, false);
+            plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5 + 4, false);
+            plr.ReferenceHub.inventory.enabled = false;
             MEC.Timing.CallDelayed(4, () =>
             {
+                plr.ReferenceHub.inventory.enabled = true;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
                 GiveGun(plr, 1.5f);
-                plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 1, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
                 if (SpecialEvent) { plr.EffectsManager.EnableEffect<Scp207>(9999); plr.AddItem(ItemType.Painkillers); plr.AddItem(ItemType.Painkillers); plr.AddItem(ItemType.Painkillers); }
                 if (FFA) RollSpawns();
             });
@@ -258,7 +314,7 @@ namespace GunGame
         ///<summary>Gives player their next gun and equips it, and removes old gun</summary>
         public void GiveGun(Player plr, float delay = 0)
         {
-            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plr.ReferenceHub.inventory.enabled)
                 return;
 
             if (plrStats.Score > 0)
@@ -286,13 +342,13 @@ namespace GunGame
                     {
                         Scp330Bag bag = weapon as Scp330Bag;
 
-                        List<CandyKindID> Candies = new List<CandyKindID>();
+                        List<CandyKindID> bagCandies = new List<CandyKindID>();
 
-                        while (Candies.Count < 5)
-                            Candies.Add((CandyKindID)new System.Random().Next(1, 7));
-                        Candies.Add(CandyKindID.Pink);
-                        Candies.ShuffleList();
-                        bag.Candies = Candies;
+                        while (bagCandies.Count < 5)
+                            bagCandies.Add((CandyKindID)new System.Random().Next(1, 7));
+                        bagCandies.Add(CandyKindID.Pink);
+                        bagCandies.ShuffleList();
+                        bag.Candies = bagCandies;
                         bag.ServerRefreshBag();
                     }
                 else
@@ -323,7 +379,8 @@ namespace GunGame
             if (!FFA && plr.Role == Roles[3, Convert.ToInt32(plrStats.IsNtfTeam)])
             {
                 plr.AddAmmo(ItemType.Ammo9x19, 12);
-                plr.Heal(25);
+                //plr.Heal(25); //Broke after 13.2 update
+                plr.GetStatModule<HealthStat>().ServerHeal(25);
                 return;
             }
             if (plrStats.Score >= AllWeapons.Count - 1) //Final level check
@@ -410,8 +467,9 @@ namespace GunGame
             Round.IsLocked = false;
             Server.FriendlyFire = true;
             EventInProgress = false;
-            //plr.Health = 42069; //This sometimes throws an error for some reason
-            //plr.ReferenceHub.playerEffectsController.DisableAllEffects();
+            //plr.Health = 42069; //Broke after 13.2 update
+            plr.GetStatModule<HealthStat>().CurValue = 42069;
+            plr.ReferenceHub.playerEffectsController.DisableAllEffects();
             ChaosSpawn = plr.Position;
             NTFSpawn = plr.Position;
 
