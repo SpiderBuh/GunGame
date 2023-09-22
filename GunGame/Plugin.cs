@@ -6,7 +6,7 @@ namespace GunGame
 {
     public class Plugin
     {
-        public static bool EventInProgress = false;
+        public static bool GameInProgress = false;
 
         [PluginEntryPoint("Gun Game", "1.0.0", "Gamemode Gun Game recreated in SCP SL", "SpiderBuh")]
         public void OnPluginStart()

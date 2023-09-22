@@ -18,53 +18,51 @@ namespace GunGame
         [PluginEvent(ServerEventType.RoundRestart)]
         public void OnRoundRestart()
         {
-            EventInProgress = false;
+            GameInProgress = false;
         }
 
         [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
         public void PlayerDeath(PlayerDyingEvent args)
         {
-            if (args.Player == null) return;
+            if (!GameInProgress || args.Player == null) return;
             var atckr = args.Attacker ?? Server.Instance;
             var plr = args.Player ?? Server.Instance;
 
-            if (!EventInProgress || !AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return;
-
-            plr.ClearInventory();
-
-            if (atckr.IsServer || atckr == plr)
+            try
             {
-                plr.ReceiveHint("Shrimply a krill issue", 3);
-                //RemoveScore(plr); //Removes a score if a player dies to natural means
-            }
-            else
-            {
-                plr.AddItem(ItemType.Medkit);
+                
 
-                if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
+                        plr.ClearInventory();
+                if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
-                    GG.TriggerWin(atckr);
-                    return;
+                    plr.ReceiveHint("Shrimply a krill issue", 3);
+                    //RemoveScore(plr); //Removes a score if a player dies to natural means
                 }
-                if (AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
-                {
-                    plr.ReceiveHint($"{atckr.Nickname} killed you ({AllWeapons.Count - atckrStats.Score})", 2);
+                else
+                {                  
+                        plr.AddItem(ItemType.Medkit);
+                    
+
+                    if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
+                    {
+                        GG.TriggerWin(atckr);
+                        return;
+                    }
+
+                    plr.ReceiveHint($"{atckr.Nickname} killed you ({GG.NumKillsReq - atckrStats.Score})", 2);
 
                     if (atckrStats.IsNtfTeam != plrStats.IsNtfTeam || FFA)
                     {
                         GG.AddScore(atckr);
-                        atckr.ReceiveHint($"You killed {plr.Nickname} ({AllWeapons.Count - plrStats.Score})", 2);
+                        atckr.ReceiveHint($"You killed {plr.Nickname} ({GG.NumKillsReq - plrStats.Score})", 2);
                     }
-                    //else
-                    //{
-                    //    //RemoveScore(atckr); //Removes score if you kill a teammate
-                    //    atckr.ReferenceHub.playerEffectsController.ChangeState<Sinkhole>(3, 5, false);
-                    //    atckr.ReceiveHint($"<color=red>{plr.Nickname} is a teammate!</color>", 5);
-                    //}
+
                 }
             }
-            GG.RollSpawns(GG.StampGrid(plr.Position, 5));
+            catch (Exception) { }           
+            GG.RollSpawns(plr.Position);
             MEC.Timing.CallDelayed(1, () =>
             {
                 GG.SpawnPlayer(plr);
@@ -75,26 +73,26 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerDropItem)]
         public bool DropItem(PlayerDropItemEvent args) //Stops items from being dropped
         {
-            return !EventInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
+            return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
         [PluginEvent(ServerEventType.PlayerThrowItem)]
         public bool ThrowItem(PlayerThrowItemEvent args) //Stops items from being throwed
         {
-            return !EventInProgress || args.Player.IsTutorial;
+            return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.PlayerDropAmmo)]
         public bool DropAmmo(PlayerDropAmmoEvent args) //Stops ammo from being dropped 
         {
-            return !EventInProgress || args.Player.IsTutorial;
+            return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.PlayerSearchPickup)]
         public bool PlayerPickup(PlayerSearchPickupEvent args)
         {
             var itemID = args.Item.Info.ItemId;
-            if (!EventInProgress || args.Player.IsTutorial)
+            if (!GameInProgress || args.Player.IsTutorial)
                 return true;
 
             return itemID == ItemType.Painkillers || itemID == ItemType.Medkit || itemID == ItemType.Adrenaline || itemID == ItemType.GrenadeFlash;//Allows only certain pickups
@@ -103,13 +101,13 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerJoined)]
         public void PlayerJoined(PlayerJoinedEvent args) //Adding new player to the game 
         {
-            if (EventInProgress)
+            if (GameInProgress)
             {
                 var plr = args.Player ?? Server.Instance;
                 GG.AssignTeam(plr);
                 plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
                 if (plr.DoNotTrack)
-                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.</color>", 15);
+                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
                 MEC.Timing.CallDelayed(3, () =>
                 {
                     GG.SpawnPlayer(plr);
@@ -120,14 +118,14 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerLeft)]
         public void PlayerLeft(PlayerLeftEvent args) //Removing player that left from list
         {
-            if (EventInProgress)            
+            if (GameInProgress)            
                 GG.RemovePlayer(args.Player);            
         }
 
         [PluginEvent(ServerEventType.PlayerChangeRole)]
         public void ChangeRole(PlayerChangeRoleEvent args) //Failsafes for admin shenanegens 
         {
-            if (!EventInProgress || !args.ChangeReason.Equals(RoleChangeReason.RemoteAdmin))
+            if (!GameInProgress || !args.ChangeReason.Equals(RoleChangeReason.RemoteAdmin))
                 return;
 
             var newR = args.NewRole;
@@ -145,7 +143,7 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerInteractElevator)]
         public bool PlayerInteractElevator(PlayerInteractElevatorEvent args)
         {
-            return !EventInProgress || args.Player.IsTutorial;
+            return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.PlayerHandcuff)]
@@ -157,19 +155,19 @@ namespace GunGame
             //    ExplosionUtils.ServerExplode(args.Player.ReferenceHub);
             //}
 
-            return !EventInProgress || args.Player.IsTutorial;
+            return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.TeamRespawn)]
         public bool RespawnCancel(TeamRespawnEvent args)
         {
-            return !EventInProgress;
+            return !GameInProgress;
         }
 
         [PluginEvent(ServerEventType.PlayerEscape)]
         public void PlayerEscapeEvent(PlayerEscapeEvent args)
         {
-            if (!EventInProgress)
+            if (!GameInProgress)
                 return;
             var plr = args.Player ?? Server.Instance;
             plr.ClearInventory();
@@ -190,7 +188,7 @@ namespace GunGame
         public bool InventoryUpgrade(Scp914UpgradeInventoryEvent args)
         {
             var plr = args.Player ?? Server.Instance;
-            if (!EventInProgress || plr.IsTutorial)
+            if (!GameInProgress || plr.IsTutorial)
                 return true;
 
             var knob = args.KnobSetting;
@@ -201,7 +199,7 @@ namespace GunGame
         public void PlayerUpgrade(Scp914ProcessPlayerEvent args) //Custom effects for player upgrading
         {
             var plr = args.Player ?? Server.Instance;
-            if (!EventInProgress || plr.IsTutorial || plr.IsSCP)
+            if (!GameInProgress || plr.IsTutorial || plr.IsSCP)
                 return;
 
             switch (args.KnobSetting)
@@ -231,7 +229,7 @@ namespace GunGame
         public void InfiniteCandy(PlayerInteractScp330Event args)
         {
             var plr = args.Player ?? Server.Instance;
-            if (!EventInProgress || plr.IsTutorial)
+            if (!GameInProgress || plr.IsTutorial)
                 args.AllowPunishment = true;
             else
             {
@@ -243,23 +241,25 @@ namespace GunGame
         }
 
 
-        [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
+        /*[PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
         public void CoinFlip(PlayerCoinFlipEvent args)
         {
             var plr = args.Player;
-            plr.ReceiveHint("Cheater", 1);
-            //AddScore(plr);
+            var tails = args.IsTails;
+            plr.ReceiveHint("Cheater", 4);
+            GG.AddScore(plr);
             try
             {
-                GG.TriggerWin(plr);
+                MEC.Timing.CallDelayed(5f, () =>
+                { GG.TriggerWin(plr); });                
             }
-            catch (Exception ex) { plr.ReceiveHint($"Something broke: {ex.Message}\n{ex.InnerException}\n{ex.Source}", 15); }
+            catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
         }
 
-        [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
+       /* [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
         public void GunUnload(PlayerUnloadWeaponEvent args)
         {
             GG.AddScore(args.Player);
-        }
+        } /**/
     }
 }

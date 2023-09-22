@@ -27,7 +27,7 @@ namespace GunGame
 
         public string Description => "Starts the GunGame event. (Args optional, [X]=default)";
 
-        public string[] Usage { get; } = { "FFA? ([y]/n)", "Zone? ([L]/H/E/S)", "Kills to win?", "Round number", /*"Full Shuffle? (y/[n])"*/ };
+        public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
 
         public static GunGameUtils GG;
 
@@ -38,7 +38,7 @@ namespace GunGame
                 GG = new GunGameUtils(
                     (arguments.Count > 0 && arguments.ElementAt(0).ToUpper() == "Y"),
                     (arguments.Count > 1 ? charZone(arguments.ElementAt(1).ToUpper()[0]) : charZone('L')),
-                    (byte)((arguments.Count > 2 && byte.TryParse(arguments.ElementAt(2), out byte parsedValue)) ? parsedValue : 20)
+                    ((arguments.Count > 2 && int.TryParse(arguments.ElementAt(2), out int parsedValue)) ? parsedValue : 20)
                     );
 
                 //if (3 < arguments.Count && arguments.ElementAt(3).ToUpper() == "Y")
@@ -53,7 +53,7 @@ namespace GunGame
                     GG.SpawnPlayer(plr);
 
                     if (plr.DoNotTrack)
-                        plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.</color>", 15);
+                        plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
                 }
                 Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=yellow>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
 
@@ -82,13 +82,13 @@ namespace GunGame
                     Grandpa.State = Scp244State.Active;
                     NetworkServer.Spawn(Grandpa.gameObject);
                 }
-                EventInProgress = true;
+                GameInProgress = true;
                 Round.IsLocked = true;
                 DecontaminationController.Singleton.enabled = false;
                 Round.Start();
                 Server.FriendlyFire = FFA;
                 GameStarted = true;
-                response = $"GunGame event has begun. \nFFA: {FFA} | Zone: {zone} | Levels: {AllWeapons.Count}";
+                response = $"GunGame event has begun. \nFFA: {FFA} | Zone: {zone} | Levels: {GG.NumKillsReq}";
                 return true;
             }
             catch (Exception e)
