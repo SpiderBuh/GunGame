@@ -1,22 +1,18 @@
-﻿using CommandSystem.Commands.RemoteAdmin;
-using CustomPlayerEffects;
+﻿using CustomPlayerEffects;
 using Interactables.Interobjects;
 using Interactables.Interobjects.DoorUtils;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
-using InventorySystem.Items.Usables.Scp330;
 using MapGeneration;
 using PlayerRoles;
 using PlayerStatsSystem;
 using PluginAPI.Core;
 using System;
-using System.Runtime;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static GunGame.Plugin;
-using CommandSystem;
 
 namespace GunGame
 {
@@ -34,7 +30,7 @@ namespace GunGame
         public static Dictionary<string, PlrInfo> SortedPlayers => AllPlayers.OrderByDescending(pair => pair.Value.Score)
                                          .ThenBy(pair => pair.Value.InnerPos)
                                          .ToDictionary(pair => pair.Key, pair => pair.Value);
-        public static int gridSize => FFA || zone.Equals(FacilityZone.Surface) ? 2 : 4;
+        public static int gridSize => FFA || zone.Equals(FacilityZone.Surface) ? 4 : 5;
         public static List<RoomIdentifier> BlacklistRooms;
         public static Dictionary<Vector3, Vector2Int> Spawns;
         public static Vector3 NTFSpawn; //Current NTF spawn
@@ -49,7 +45,9 @@ namespace GunGame
         public readonly List<Gat> Tier1 = new List<Gat>() { //Hex for attachment code much more compact than binary
             new Gat(ItemType.Jailbird, 1),
 
-            new Gat(ItemType.GunLogicer, 0x1881), //Run n gun
+            new Gat(ItemType.GunCom45, 1, 255), //What da dog doin?
+
+            new Gat(ItemType.GunLogicer, 0x1881, 255), //Run n gun
             
             new Gat(ItemType.GunShotgun, 0x452), //The Viper
 
@@ -61,28 +59,28 @@ namespace GunGame
 
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
-            new Gat(ItemType.GunFRMG0, 0x19102), //Lawn Mower
+            new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
         };
 
         public readonly List<Gat> Tier2 = new List<Gat>() {
            // new Gat(ItemType.SCP330), // pink candy
-            new Gat(ItemType.MicroHID, 1),
+           // new Gat(ItemType.MicroHID, 1),
 
             new Gat(ItemType.GunCrossvec, 0x84A1), //Faster than reloading!
 
             new Gat(ItemType.GunE11SR, 0x521241), //Rambo style
 
-            new Gat(ItemType.GunAK, 0x24301), //Rambo 2 electric boogaloo
+            new Gat(ItemType.GunAK, 0x24301, 200), //Rambo 2 electric boogaloo
 
             new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
 
-            new Gat(ItemType.GunRevolver, 0x18A), //It's high noon
+            new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
 
-            new Gat(ItemType.GunFSP9, 0x2922), //Genocide time!
+            new Gat(ItemType.GunFSP9, 0x2922), //D-boy genocide time!
         };
 
         public readonly List<Gat> Tier3 = new List<Gat>() {
-            new Gat(ItemType.GunA7),
+            new Gat(ItemType.GunA7, 1),
 
             new Gat(ItemType.GunShotgun, 0x245), //Spray n pray
 
@@ -90,15 +88,16 @@ namespace GunGame
 
             new Gat(ItemType.GunFRMG0, 0x24841), //100 round mag go brrr
 
-            new Gat(ItemType.ParticleDisruptor),
+            new Gat(ItemType.ParticleDisruptor, 1, 69),
 
             new Gat(ItemType.GunCrossvec), //Random
+            new Gat(ItemType.GrenadeHE, 4),
 
             new Gat(ItemType.GunAK), //Random
         };
 
         public readonly List<Gat> Tier4 = new List<Gat>() {
-            new Gat(ItemType.GunCom45),
+            new Gat(ItemType.GunCom45, 1),
 
             new Gat(ItemType.GunCOM18), //Random
 
@@ -106,21 +105,26 @@ namespace GunGame
 
             new Gat(ItemType.GunRevolver), //Random
         };
-        //Final tier: COM 15
+        public readonly List<Gat> FinalTier = new List<Gat>()
+        {
+            new Gat(ItemType.GunCOM15),
+            //new Gat(ItemType.Flashlight)
+        };
+
         /// <summary>
-        /// The number of possible guns, EXCLUDING the final level
+        /// The number of possible guns, EXCLUDING the final levels
         /// </summary>
         public byte NumGuns => (byte)(Tier1.Count + Tier2.Count + Tier3.Count + Tier4.Count);
         /// <summary>
-        /// The total number of guns this round, INCLUDING the final level
+        /// The total number of guns this round, INCLUDING the final levels
         /// </summary>
-        public byte NumKillsReq => (byte)(AllWeapons.Count + 1);
+        public byte NumKillsReq => (byte)AllWeapons.Count;
         public int currRound = -1;// RoundsPlayed + 1;
 
         public readonly RoleTypeId[,] Roles = new RoleTypeId[,] { { RoleTypeId.ChaosRepressor, RoleTypeId.NtfCaptain }, { RoleTypeId.ChaosMarauder, RoleTypeId.NtfSergeant }, { RoleTypeId.ChaosConscript, RoleTypeId.NtfPrivate }, { RoleTypeId.ClassD, RoleTypeId.Scientist } }; //Player visual levels
         public readonly List<string> BlacklistRoomNames = new List<string>() { "LczCheckpointA", "LczCheckpointB", /*"LczClassDSpawn",*/ "HczCheckpointToEntranceZone", "HczCheckpointToEntranceZone", "HczWarhead", "Hcz049", "Hcz106", "Hcz079", "Lcz173" };
-        public readonly Vector3[] LROffset = new Vector3[] { new Vector3(3, 15.28f, 7.8f), new Vector3(-3.5f, -4.28f, -12), new Vector3(0, 0.96f, -1.5f), new Vector3(-13, 14.46f, -33f), };
-        public readonly RoomName[] LRNames = new RoomName[] { RoomName.Lcz173, RoomName.Hcz079, RoomName.EzEvacShelter, RoomName.Outside };
+        public readonly Vector3[] LROffset = new Vector3[] { new Vector3(3, 15.28f, 7.8f), new Vector3(-3.5f, -4.28f, -12), new Vector3(6f, 3.83f, -3.5f), new Vector3(-13, 14.46f, -33f), new Vector3(0, 0.96f, -1.5f), };
+        public readonly RoomName[] LRNames = new RoomName[] { RoomName.Lcz173, RoomName.Hcz079, RoomName.EzGateB, RoomName.Outside, RoomName.EzEvacShelter };
         public readonly List<Vector3> SurfaceSpawns = new List<Vector3> { new Vector3(0f, 1001f, 0f), new Vector3(8f, 991.65f, -43f), new Vector3(10.5f, 997.47f, -23.25f), new Vector3(63.5f, 995.69f, -34f), new Vector3(63f, 991.65f, -51f), new Vector3(114.5f, 995.45f, -43f), new Vector3(137f, 995.46f, -60f), new Vector3(38.5f, 1001f, -52f), new Vector3(0f, 1001f, -42f) }; //Extra surface spawns
         public readonly List<ItemType> AllAmmo = new List<ItemType>() { ItemType.Ammo12gauge, ItemType.Ammo44cal, ItemType.Ammo556x45, ItemType.Ammo762x39, ItemType.Ammo9x19 }; //All ammo types for easy adding
 
@@ -141,10 +145,12 @@ namespace GunGame
                     return FacilityZone.Entrance;
                 case 'S':
                     return FacilityZone.Surface;
+                case 'O':
+                    return FacilityZone.Other;
             }
             return FacilityZone.LightContainment;
         }
-        public Vector2Int StampGrid(Vector3 spawn, int shift = 4) => new Vector2Int((int)spawn.x >> shift, (int)spawn.z >> shift); // Divide by 2^shift
+        public Vector2Int StampGrid(Vector3 spawn, int shift = 5) => new Vector2Int((int)spawn.x >> shift, (int)spawn.z >> shift); // Divide by 2^shift
 
         public GunGameUtils(bool ffa = false, FacilityZone targetZone = FacilityZone.LightContainment, int numKills = 20)
         {
@@ -161,26 +167,32 @@ namespace GunGame
             credits = 0;
         }
 
+        [Flags]
+        public enum GGPlayerFlags : byte
+        {
+            NTF = 1,
+            alive = 2,
+            onMap = 4,
+            spawned = alive | onMap,
+            preFL = 8,
+            finalLevel = 16,
+            validFL = finalLevel | preFL | spawned,
+        }
         public class PlrInfo
         {
-            public bool IsNtfTeam { get; set; }
+            public GGPlayerFlags flags;
             public byte Score { get; set; }
             public short InnerPos { get; set; }
+            public bool IsNtfTeam => flags.HasFlag(GGPlayerFlags.NTF);
+            public int killsLeft => GunGameEventCommand.GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
+            public void SetTeam(bool NTF) => flags = flags & ~GGPlayerFlags.NTF | (NTF ? GGPlayerFlags.NTF : 0);
+            public void inc() => InnerPos = ++InnerPosition[++Score];
 
             public PlrInfo(bool isNtfTeam, byte score = 0)
             {
-                IsNtfTeam = isNtfTeam;
+                SetTeam(isNtfTeam);
                 Score = score;
                 InnerPos = ++InnerPosition[score];
-            }
-            public void inc()
-            {
-                InnerPos = ++InnerPosition[++Score];
-            }
-            public void softInc()
-            {
-                if (InnerPos >= 0)
-                    InnerPos = (short)(++InnerPosition[Score + 1] - 64);
             }
         }
 
@@ -188,15 +200,15 @@ namespace GunGame
         {
             public ItemType ItemType { get; set; }
             public uint Mod { get; set; } = 0;
+            public byte Ammo { get; set; } = 0;
 
-            public Gat(ItemType itemType, uint codeModifier = 0)
+            public Gat(ItemType itemType, uint modCode = 0, byte ammoCount = 0)
             {
                 ItemType = itemType;
-                Mod = codeModifier;
+                Mod = modCode;
+                Ammo = ammoCount;
             }
         }
-
-
 
         public Dictionary<string, int> Positions()
         {
@@ -210,13 +222,13 @@ namespace GunGame
 
         public void SetNumWeapons(byte num = 20)
         {
-            num--; //Excludes the final level in shuffle target
+            num -= 2; //Excludes the final levels in shuffle target
             byte T1 = (byte)Math.Round((double)Tier1.Count / NumGuns * num);
             byte T2 = (byte)Math.Round((double)Tier2.Count / NumGuns * num);
             byte T3 = (byte)Math.Round((double)Tier3.Count / NumGuns * num);
             byte T4 = (byte)(num - T1 - T2 - T3);
 
-            AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).ToList();
+            AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).Concat(FinalTier).ToList();
         }
 
         ///<summary>Takes in a list and returns a list of the target length comprising of the input's values</summary>
@@ -238,15 +250,11 @@ namespace GunGame
         {
             if (!GameStarted || forceAll)
             {
-                LoadingRoom = new Vector3[LRNames.Count()];
-                byte z = 0;
-                foreach (RoomName roomName in LRNames)
-                {
+                LoadingRoom = new Vector3[LRNames.Length];
+                for (int z = 0; z < LRNames.Length; z++)
                     if (RoomIdUtils.TryFindRoom(LRNames[z], FacilityZone.None, RoomShape.Undefined, out var foundRoom))
                         LoadingRoom[z] = foundRoom.transform.position + foundRoom.transform.rotation * LROffset[z];
                     else LoadingRoom[z] = new Vector3(-15.5f, 1014.5f, -31.5f);
-                    z++;
-                }
 
                 BlacklistRooms = new List<RoomIdentifier>();
                 foreach (string room in BlacklistRoomNames) //Gets blacklisted room objects for current game
@@ -258,14 +266,24 @@ namespace GunGame
                 foreach (Vector3 spot in SurfaceSpawns)
                     Spawns.Add(spot, StampGrid(spot));
 
-            foreach (var door in DoorVariant.AllDoors) //Adds every door in specified zone to spawns list            
-                if (door.IsInZone(zone) && !(door is ElevatorDoor || door is CheckpointDoor) && !door.Rooms.Any(x => BlacklistRooms.Any(y => y == x)))
+            bool dual = zone == FacilityZone.Other;
+            FacilityZone tempZone = !dual ? zone : FacilityZone.HeavyContainment;
+            FacilityZone dualtempZone = !dual ? zone : FacilityZone.Entrance;
+            foreach (var door in DoorVariant.AllDoors) //Adds every door in specified zone to spawns list
+            {
+                if (!(door is ElevatorDoor || door is CheckpointDoor) && !door.Rooms.Any(x => BlacklistRooms.Contains(x)) && door.Rooms.Any(z => z.Zone == tempZone || z.Zone == dualtempZone))
                 {
                     Vector3 doorpos = door.gameObject.transform.position + new Vector3(0, 1, 0);
                     Spawns.Add(doorpos, StampGrid(doorpos));
                     door.NetworkTargetState = true;
                 }
-
+                else
+                {
+                    bool lockState = (dual || zone == FacilityZone.LightContainment) && door is CheckpointDoor;
+                    door.ServerChangeLock(DoorLockReason.Warhead, lockState);
+                    door.NetworkTargetState = lockState;
+                }
+            }
             RollSpawns();
         }
         public void RollSpawns(Vector3 deathPos) // Current system should be good for Teams, but meh FFA
@@ -299,7 +317,6 @@ namespace GunGame
                 return;
             NTFSpawn = filteredSpawns.Where(c => c.Value != CS.Value).ToList().RandomItem().Key;
             Cassie.Message(".G2", false, false, false);
-
         }
 
         public void AssignTeam(Player plr) //Assigns player to team
@@ -309,7 +326,7 @@ namespace GunGame
             bool teams = (Tntf < Tchaos) && !FFA;
             if (!AllPlayers.TryGetValue(plr.UserId, out PlrInfo plrInfo))
                 AllPlayers.Add(plr.UserId, new PlrInfo(teams)); //Adds player to list, uses bool operations to determine teams
-            else plrInfo.IsNtfTeam = teams;
+            else plrInfo.SetTeam(teams);
             if (teams)
                 Tntf++;
             else
@@ -320,6 +337,7 @@ namespace GunGame
         {
             if (AllPlayers.TryGetValue(plr.UserId, out var plrStats))
             {
+                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL;
                 if (plrStats.IsNtfTeam)
                     Tntf--;
                 else
@@ -335,26 +353,33 @@ namespace GunGame
                 plr.ReceiveHint("You are unable to spawn. Try rejoining", 10);
                 return;
             }
-            int level = FFA ? 3 : Mathf.Clamp((int)Math.Round((double)plrStats.Score / AllWeapons.Count * 3), 0, 2);
-            plr.ReferenceHub.roleManager.ServerSetRole(Roles[level, plrStats.IsNtfTeam ? 1 : 0], RoleChangeReason.Respawn, RoleSpawnFlags.None); //Uses bool in 2d array to determine spawn class
+            //if (plrStats.flags.HasFlag(GGPlayerFlags.alive))
+            //    return;
+            int level = FFA||plrStats.flags.HasFlag(GGPlayerFlags.preFL) ? 3 : Mathf.Clamp((int)Math.Round((double)plrStats.Score / AllWeapons.Count * 3), 0, 2);
+            plr.ReferenceHub.roleManager.ServerSetRole(Roles[level, (int)(plrStats.flags & GGPlayerFlags.NTF)], RoleChangeReason.Respawn, RoleSpawnFlags.None); //Uses bool in 2d array to determine spawn class
             plr.ClearInventory();
             plr.Position = LoadingRoom[((int)zone) - 1];
             plr.ReferenceHub.playerEffectsController.ChangeState<MovementBoost>(25, 99999, false); //Movement effects
-            plr.ReferenceHub.playerEffectsController.ChangeState<Scp1853>((byte)(NumKillsReq - plrStats.Score), 99999, false);
+            plr.ReferenceHub.playerEffectsController.ChangeState<Scp1853>((byte)plrStats.killsLeft, 99999, false);
             plr.AddItem(ItemType.ArmorCombat);
             plr.AddItem(ItemType.Painkillers);
-            plr.SendBroadcast($"Guns left: {NumKillsReq - plrStats.Score}", 5);
-            plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5 + 4, false);
-            plr.ReferenceHub.inventory.enabled = false;
+            plr.AddItem(ItemType.Radio);
+            plr.AddItem(ItemType.Flashlight);
+            plr.SendBroadcast($"Kills left: {plrStats.killsLeft}", 5);
+            plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5, false);
+            foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
+                plr.SetAmmo(ammo, 420);
+            plrStats.flags |= GGPlayerFlags.alive;
             MEC.Timing.CallDelayed(4, () =>
             {
-                plr.ReferenceHub.inventory.enabled = true;
+                plrStats.flags |= GGPlayerFlags.onMap;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
-                plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
                 GiveGun(plr, 1.5f);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(100, 3, true);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 1, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
-                //if (SpecialEvent) { plr.EffectsManager.EnableEffect<Scp207>(9999); plr.AddItem(ItemType.Painkillers); plr.AddItem(ItemType.Painkillers); plr.AddItem(ItemType.Painkillers); }
                 if (FFA) RollSpawns();
             });
         }
@@ -362,61 +387,45 @@ namespace GunGame
         ///<summary>Gives player their next gun and equips it, and removes old gun</summary>
         public void GiveGun(Player plr, float delay = 0)
         {
-            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plr.ReferenceHub.inventory.enabled)
+            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.flags.HasFlag(GGPlayerFlags.spawned))
                 return;
 
-            foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
-                plr.AddAmmo(ammo, (ushort)plr.GetAmmoLimit(ammo));
-
             if (plrStats.Score > 0)
-                foreach (ItemBase item in plr.Items.ToList()) //Removes last gun                
+                foreach (ItemBase item in plr.Items.ToList()) //Removes last gun(s)                
                     if (item.ItemTypeId == AllWeapons.ElementAt(plrStats.Score - 1).ItemType || item.ItemTypeId == AllWeapons.ElementAtOrDefault(plrStats.Score).ItemType)
-                    {
                         plr.RemoveItem(item);
-                        //break; //Removes all items if user has multiple when commented out
-                    }
-
+            if (plrStats.killsLeft <= 2)
+                plrStats.flags |= GGPlayerFlags.preFL;
             MEC.Timing.CallDelayed(delay, () =>
+        {
+            Gat currGun = AllWeapons.ElementAt(plrStats.Score);
+            ItemBase weapon = plr.AddItem(currGun.ItemType);
+            if (weapon is Firearm firearm)
             {
-                Gat currGun = AllWeapons.ElementAt(plrStats.Score);
-                ItemBase weapon = plr.AddItem(currGun.ItemType);
-                //if (weapon is Firearm || weapon is Scp330Bag)
-                if (weapon is Firearm)
-                {
-                    Firearm firearm = weapon as Firearm;
-                    uint attachment_code = currGun.Mod == 0 ? AttachmentsUtils.GetRandomAttachmentsCode(firearm.ItemTypeId) : currGun.Mod; //Random attachments if no attachment code specified
-                                                                                                                                           //AttachmentsServerHandler.PlayerPreferences[plr.ReferenceHub][firearm.ItemTypeId] //Player's chosen weapon attachments
-                    AttachmentsUtils.ApplyAttachmentsCode(firearm, attachment_code, true);
-                    firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, attachment_code);
-                }
-                /*else
-                {
-                    Scp330Bag bag = weapon as Scp330Bag;
+                uint attachment_code = currGun.Mod == 0 ? AttachmentsUtils.GetRandomAttachmentsCode(firearm.ItemTypeId) : currGun.Mod; //Random attachments if no attachment code specified
+                AttachmentsUtils.ApplyAttachmentsCode(firearm, attachment_code, true);
+                byte ammo_count = currGun.Ammo == 0 ? firearm.AmmoManagerModule.MaxAmmo : currGun.Ammo;
+                firearm.Status = new FirearmStatus(ammo_count, FirearmStatusFlags.MagazineInserted | FirearmStatusFlags.Cocked | FirearmStatusFlags.Chambered, attachment_code);
+            }
+            /*else if (weapon is Scp330Bag bag)
+            {
+                List<CandyKindID> bagCandies = new List<CandyKindID>();
+                while (bagCandies.Count < 5)
+                    bagCandies.Add((CandyKindID)new System.Random().Next(1, 7));
+                bagCandies.Add(CandyKindID.Pink);
+                bagCandies.ShuffleList();
+                bag.Candies = bagCandies;
+                bag.ServerRefreshBag();
+            }*/
+            else
+                for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
+                    plr.AddItem(currGun.ItemType);
 
-                    List<CandyKindID> bagCandies = new List<CandyKindID>();
-
-                    while (bagCandies.Count < 5)
-                        bagCandies.Add((CandyKindID)new System.Random().Next(1, 7));
-                    bagCandies.Add(CandyKindID.Pink);
-                    bagCandies.ShuffleList();
-                    bag.Candies = bagCandies;
-                    bag.ServerRefreshBag();
-                }*/
-                else
-                {
-                    byte i = (byte)currGun.Mod;
-                    while (i > 0 && !plr.IsInventoryFull)
-                    {
-                        plr.AddItem(currGun.ItemType);
-                        i--;
-                    }
-                }
-
-                MEC.Timing.CallDelayed(0.1f, () =>
-                {
-                    plr.CurrentItem = weapon;
-                });
+            MEC.Timing.CallDelayed(0.1f, () =>
+            {
+                plr.CurrentItem = weapon;
             });
+        });
         }
 
         public void AddScore(Player plr) //Increases player's score
@@ -426,59 +435,28 @@ namespace GunGame
                 //plr.ReceiveHint("You aren't registered as a player. Try rejoining", 5);
                 return;
             }
-            plr.EffectsManager.EnableEffect<Invigorated>(5, true);
-            if (!FFA && plr.Role == Roles[3, plrStats.IsNtfTeam ? 1 : 0])
+
+            switch (plrStats.killsLeft)
             {
-                plr.AddAmmo(ItemType.Ammo9x19, 12);
-                //plr.Heal(25); //Broke after 13.2 update
-                plr.GetStatModule<HealthStat>().ServerHeal(25);
-                return;
-            }
-            if (plrStats.Score >= AllWeapons.Count - 1) //Final level check
-            {
-                plrStats.softInc();
-                Firearm firearm = null;
-                plr.ClearInventory();
-                Cassie.Clear();
-                if (!FFA)
-                {
-                    plr.ReferenceHub.roleManager.ServerSetRole(Roles[3, plrStats.IsNtfTeam ? 1 : 0], RoleChangeReason.Respawn, RoleSpawnFlags.None);
-                    plr.Damage(25, "krill issue (your health was too low somehow)");
-                    Cassie.Message("pitch_1.50 .G4", false, false, false);
-                    firearm = plr.AddItem(ItemType.GunCOM15) as Firearm;
-                    AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x2B, true);
-                    firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x2B);
-                    while (!plr.IsInventoryFull)
-                        plr.AddItem(ItemType.Coin);
-                    plr.AddAmmo(ItemType.Ammo9x19, 25);
-                    MEC.Timing.CallDelayed(0.1f, () =>
-                    {
-                        plr.CurrentItem = firearm;
-                    });
-                    plr.SendBroadcast($"{NumKillsReq - plrStats.Score - 1}", 1);
+                case 1:
+                    plrStats.inc(); //Adds 1 to score
+                    TriggerWin(plr);
                     return;
-                }
-
-                plr.ReferenceHub.roleManager.ServerSetRole(RoleTypeId.Scp0492, RoleChangeReason.Respawn, RoleSpawnFlags.AssignInventory); //Spawns zombie without increasing score
-                plr.ReferenceHub.playerEffectsController.ChangeState<MovementBoost>(20, 99999, false);
-                plr.ReferenceHub.playerEffectsController.ChangeState<Scp1853>(11, 99999, false);
-                plr.ReferenceHub.playerEffectsController.ChangeState<Scp207>(1, 99999, false);
-                Cassie.Message("pitch_1.50 .G4", false, false, false);
-                firearm = plr.AddItem(ItemType.GunCOM15) as Firearm;
-                AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x2B, true);
-                firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x2B);
-                plr.AddAmmo(ItemType.Ammo9x19, 26);
-                MEC.Timing.CallDelayed(0.1f, () =>
-                {
-                    plr.CurrentItem = firearm;
-                });
-                plr.SendBroadcast($"{NumKillsReq - plrStats.Score - 1}", 1);
-                return;
+                case 2:
+                    plrStats.flags |= GGPlayerFlags.finalLevel;
+                    //plr.ReferenceHub.roleManager.ServerSetRole(FFA ? RoleTypeId.FacilityGuard : Roles[3, (int)(plrStats.flags & GGPlayerFlags.NTF)], RoleChangeReason.Respawn, RoleSpawnFlags.None);
+                    //plr.Damage(plr.Health/4, "krill issue (your health was too low somehow)");
+                    Cassie.Clear();
+                    Cassie.Message("pitch_1.50 .G4", false, false, false);
+                    break;
+                case 3:
+                    plrStats.flags |= GGPlayerFlags.preFL;
+                    break;
             }
-
+            plr.EffectsManager.EnableEffect<Invigorated>(5, true);
             plrStats.inc(); //Adds 1 to score
             GiveGun(plr);
-            plr.SendBroadcast($"{NumKillsReq - plrStats.Score}", 1);
+            plr.SendBroadcast($"{plrStats.killsLeft}", 1);
         }
 
         public void RemoveScore(Player plr)
@@ -499,14 +477,14 @@ namespace GunGame
             if (plrStats.Score > 0)
             {
                 plrStats.Score--;
+            }
                 if (plr.IsAlive)
                     GiveGun(plr);
-            }
         }
 
         public void TriggerWin(Player plr) //Win sequence
         {
-            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.flags.HasFlag(GGPlayerFlags.validFL))
                 return;
             DateTime now = DateTime.Now;
             RoundData round = new RoundData(currRound, FFA, zone, NumKillsReq, now, out string roundID);
@@ -514,7 +492,6 @@ namespace GunGame
             List<ScoreData> scores = new List<ScoreData>();
             List<string> dnts = new List<string>();
             EndingStats endStats = new EndingStats(FFA, plrStats.IsNtfTeam);
-
             string team = "";
             if (!FFA)
                 team = "\n and " + (plrStats.IsNtfTeam ? "NTF" : "Chaos") + " helped too I guess";
@@ -540,7 +517,8 @@ namespace GunGame
                     plrsLeft--;
                     continue;
                 }
-                int teamBonus = (!FFA && (loserEntry.Value.IsNtfTeam == plrStats.IsNtfTeam)) ? 2 : 0;
+                //int teamBonus = (!FFA && (loserEntry.Value.IsNtfTeam == plrStats.IsNtfTeam)) ? 2 : 0;
+                int teamBonus = FFA ? 0 : (int)((~loserEntry.Value.flags ^ plrStats.flags) & GGPlayerFlags.NTF) * 2;
                 int positionScore = Convert.ToInt32((double)(plrsLeft + 1) / SortedPlayers.Count() * 13);
 
                 loser.ClearInventory();
@@ -572,7 +550,6 @@ namespace GunGame
             GunGameDataManager.AddScores(playersData, scores, round);
             GunGameDataManager.UserScrub(dnts);
             Server.SendBroadcast(endStats.getRoundScreen() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 15);
-
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
             AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x1881, true);
             firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x1881);
@@ -626,10 +603,7 @@ namespace GunGame
                         return $"Results:\n<color=green>Chaos:\n{string.Join("\n", Chaos)}</color>\n<color=blue>NTF:\n{string.Join("\n", NTF)}</color>";
                 }
                 return "Results:\n" + string.Join("\n", Chaos);
-
             }
-
         }
-
     }
 }

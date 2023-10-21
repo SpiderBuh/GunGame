@@ -1,6 +1,5 @@
 ﻿using MapGeneration;
 using PluginAPI.Core;
-using PluginAPI.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,8 +25,8 @@ namespace GunGame
         public string UserID { get; set; } = string.Empty;
         public string Nickname { get; set; } = string.Empty;
         public PlayerData(Player plr)
-        { 
-            UserID = plr.UserId; 
+        {
+            UserID = plr.UserId;
             Nickname = plr.Nickname;
         }
         public PlayerData(string UID, string Nick)
@@ -130,10 +129,10 @@ namespace GunGame
         public static void UserScrub(List<string> uIDs) => SaveData(removePlayer(uIDs, LoadData()));
         private static GunGameDataWrapper removePlayer(List<string> uIDs, GunGameDataWrapper data)
         {
-            foreach(var uID in uIDs)
+            foreach (var uID in uIDs)
                 data.removePlayer(uID);
             return data;
-        }            
+        }
         private static GunGameDataWrapper removePlayer(string uID, GunGameDataWrapper data)
         {
             data.Players.RemoveAll(x => x.UserID.Equals(uID));

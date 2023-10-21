@@ -1,15 +1,10 @@
 ﻿using CommandSystem;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static GunGame.Plugin;
-using static GunGame.GunGameUtils;
-using static GunGame.GunGameEventCommand;
 using PluginAPI.Core;
-using PluginAPI.Commands;
-using PluginAPI.Events;
+using System;
+using System.Linq;
+using static GunGame.GunGameEventCommand;
+using static GunGame.GunGameUtils;
+using static GunGame.Plugin;
 
 namespace GunGame.Commands
 {
@@ -28,12 +23,13 @@ namespace GunGame.Commands
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
-                response = "\nCommand recieved";
+            response = "\nCommand recieved";
             try
             {
-                if (!GameInProgress) {
+                if (!GameInProgress)
+                {
                     response += "\nGame not in progress.";
-                    return false;                    
+                    return false;
                 }
                 Player plr = FixOthers && arguments.Count > 0 ? Player.Get(int.Parse(arguments.First())) : Player.Get(sender);
                 if (plr == null || plr.IsServer)
@@ -53,7 +49,8 @@ namespace GunGame.Commands
                 }
                 else
                 {
-                    response += "\nPlayer exists in list";
+                    response += "\nPlayer exists in list, resetting flags";
+                    plrInfo.flags &= GGPlayerFlags.NTF;
                 }
                 if (plr.Role == PlayerRoles.RoleTypeId.Spectator)
                     response += "\nPlayer not spawned, attempting spawn";
@@ -63,7 +60,8 @@ namespace GunGame.Commands
                 plr.ReceiveHint("You were respawned by the playerFix command :^)", 5);
                 response += "\nEverything should hopefully be fixed now. If not, then something more than just the player is broken.";
                 return true;
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 response += "\nYou are so broken, you broke the command to fix you.\n" + ex.Message;
                 return false;
@@ -72,7 +70,7 @@ namespace GunGame.Commands
     }
 
     [CommandHandler(typeof(ClientCommandHandler))]
-    public class FixSelfCommand : FixPlayerCommand 
+    public class FixSelfCommand : FixPlayerCommand
     {
         public new bool FixOthers = false;
         public new string[] Usage { get; } = null;

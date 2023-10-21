@@ -1,14 +1,8 @@
 ﻿using CommandSystem;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static GunGame.Plugin;
-using static GunGame.GunGameEventCommand;
 using PluginAPI.Core;
-using PluginAPI.Commands;
-using PluginAPI.Events;
+using System;
+using static GunGame.GunGameEventCommand;
+using static GunGame.Plugin;
 
 namespace GunGame.Commands
 {
@@ -29,7 +23,7 @@ namespace GunGame.Commands
             if (!GameInProgress)
             {
                 response = "Game not in progress";
-                return false; 
+                return false;
             }
             bool indent = Player.TryGet(sender, out var plr) && !plr.IsServer;
             var plrs = GG.Positions();
@@ -42,7 +36,7 @@ namespace GunGame.Commands
                        : (i % 10 == 2) ? "nd"
                        : (i % 10 == 3) ? "rd"
                        : "th";
-                response += $"\n{( indent&&plr.Nickname.Equals(item.Key) ? " # " : "" )} - {i}{ordinal}: {item.Key} [{item.Value}]";
+                response += $"\n{(indent && plr.Nickname.Equals(item.Key) ? " # " : "")} - {i}{ordinal}: {item.Key} [{item.Value}]";
                 i++;
             }
             return true;

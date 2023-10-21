@@ -1,4 +1,10 @@
-﻿using CustomPlayerEffects;
+﻿using CustomCulling;
+using CustomPlayerEffects;
+using GunGame.HitRegModules;
+using InventorySystem.Items;
+using InventorySystem.Items.Firearms;
+using InventorySystem.Items.Firearms.FunctionalParts;
+using InventorySystem.Items.Flashlight;
 using PlayerRoles;
 using PluginAPI.Core;
 using PluginAPI.Core.Attributes;
@@ -6,6 +12,7 @@ using PluginAPI.Enums;
 using PluginAPI.Events;
 using Scp914;
 using System;
+using System.Linq;
 using Utils;
 using static GunGame.GunGameEventCommand;
 using static GunGame.GunGameUtils;
@@ -21,8 +28,59 @@ namespace GunGame
             GameInProgress = false;
         }
 
+       /* [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
+        public void KnifeStab(PlayerToggleFlashlightEvent args)
+        {
+            if (GameInProgress || args.Player.IsTutorial)
+            {
+                var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem/, args.Player.ReferenceHub);
+                if (stab.ClientCalculateHit(out var shot))
+                    stab.ServerProcessShot(shot);
+            }
+        }*/
+
         [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
         public void PlayerDeath(PlayerDyingEvent args)
+        {
+            if (!GameInProgress || args.Player == null || args.Player.IsServer) return;
+            var atckr = args.Attacker ?? Server.Instance;
+            var plr = args.Player;
+
+            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+                return;
+            try
+            {
+                plr.ClearInventory();
+                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL;
+                if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
+                {
+                    plr.ReceiveHint("Shrimply a krill issue", 3);
+                    //RemoveScore(plr); //Removes a score if a player dies to natural means
+                }
+                else
+                {
+                    plr.AddItem(ItemType.Medkit);
+                    /*if (args.DamageHandler is KnifeDamageHandler knifed)
+                    {
+                        GG.RemoveScore(plr);
+                    plr.ReceiveHint($"<color=red>{atckr.Nickname} just knifed you xD ({atckrStats.killsLeft})</color>", 5);
+                    } else*/
+                    plr.ReceiveHint($"{atckr.Nickname} killed you ({atckrStats.killsLeft})", 2);
+                    if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
+                    {
+                        GG.AddScore(atckr);
+                        atckr.ReceiveHint($"You killed {plr.Nickname} ({plrStats.killsLeft})", 2);
+                    }
+                }
+            }
+            catch (Exception) { }
+            GG.RollSpawns(plr.Position);
+            MEC.Timing.CallDelayed(1, () =>
+            {
+                GG.SpawnPlayer(plr);
+            });
+        }
+        /*public void PlayerDeath(PlayerDyingEvent args)
         {
             if (!GameInProgress || args.Player == null) return;
             var atckr = args.Attacker ?? Server.Instance;
@@ -32,18 +90,16 @@ namespace GunGame
                 return;
             try
             {
-                
-
-                        plr.ClearInventory();
+                plr.ClearInventory();
                 if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     plr.ReceiveHint("Shrimply a krill issue", 3);
                     //RemoveScore(plr); //Removes a score if a player dies to natural means
                 }
                 else
-                {                  
-                        plr.AddItem(ItemType.Medkit);
-                    
+                {
+                    plr.AddItem(ItemType.Medkit);
+
 
                     if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
                     {
@@ -61,13 +117,13 @@ namespace GunGame
 
                 }
             }
-            catch (Exception) { }           
+            catch (Exception) { }
             GG.RollSpawns(plr.Position);
             MEC.Timing.CallDelayed(1, () =>
             {
                 GG.SpawnPlayer(plr);
             });
-        }
+        }*/
 
 
         [PluginEvent(ServerEventType.PlayerDropItem)]
@@ -101,25 +157,24 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerJoined)]
         public void PlayerJoined(PlayerJoinedEvent args) //Adding new player to the game 
         {
-            if (GameInProgress)
+            if (!GameInProgress || args.Player.IsServer)
+                return;
+            var plr = args.Player;
+            GG.AssignTeam(plr);
+            plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+            if (plr.DoNotTrack)
+                plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+            MEC.Timing.CallDelayed(3, () =>
             {
-                var plr = args.Player ?? Server.Instance;
-                GG.AssignTeam(plr);
-                plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
-                if (plr.DoNotTrack)
-                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
-                MEC.Timing.CallDelayed(3, () =>
-                {
-                    GG.SpawnPlayer(plr);
-                });
-            }
+                GG.SpawnPlayer(plr);
+            });
         }
 
         [PluginEvent(ServerEventType.PlayerLeft)]
         public void PlayerLeft(PlayerLeftEvent args) //Removing player that left from list
         {
-            if (GameInProgress)            
-                GG.RemovePlayer(args.Player);            
+            if (GameInProgress)
+                GG.RemovePlayer(args.Player);
         }
 
         [PluginEvent(ServerEventType.PlayerChangeRole)]
@@ -240,8 +295,8 @@ namespace GunGame
             }
         }
 
-
-        /*[PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
+/*
+        [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
         public void CoinFlip(PlayerCoinFlipEvent args)
         {
             var plr = args.Player;
@@ -254,9 +309,9 @@ namespace GunGame
                 { GG.TriggerWin(plr); });                
             }
             catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
-        }
+        }*
 
-       /* [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
+        [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
         public void GunUnload(PlayerUnloadWeaponEvent args)
         {
             GG.AddScore(args.Player);

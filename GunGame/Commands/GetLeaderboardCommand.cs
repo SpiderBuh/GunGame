@@ -1,13 +1,8 @@
 ﻿using CommandSystem;
+using PluginAPI.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static GunGame.Plugin;
-using PluginAPI.Core;
-using PluginAPI.Commands;
-using PluginAPI.Events;
 
 namespace GunGame.Commands
 {
@@ -24,7 +19,7 @@ namespace GunGame.Commands
         public string Description => "Returns the GunGame leaderboard";
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
-        {           
+        {
             bool indent = Player.TryGet(sender, out var plr) && !plr.IsServer;
             var data = GunGameDataManager.LoadData();
             Dictionary<PlayerData, int> PointTotals = data.Players.ToDictionary(k => k, v => data.Scores //Grabs from PlayerData and ScoreData
@@ -40,7 +35,7 @@ namespace GunGame.Commands
                        : (i % 10 == 2) ? "nd"
                        : (i % 10 == 3) ? "rd"
                        : "th";
-                response += $"\n{( indent&&plr.UserId.Equals(item.Key.UserID) ? " # " : "" )} - {i}{ordinal}: {item.Key.Nickname}\tScore: {item.Value}";
+                response += $"\n{(indent && plr.UserId.Equals(item.Key.UserID) ? " # " : "")} - {i}{ordinal}: {item.Key.Nickname}\tScore: {item.Value}";
                 i++;
             }
             return true;

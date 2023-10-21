@@ -27,7 +27,7 @@ namespace GunGame
 
         public string Description => "Starts the GunGame event. (Args optional, [X]=default)";
 
-        public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
+        public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S/O)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
 
         public static GunGameUtils GG;
 
@@ -40,10 +40,10 @@ namespace GunGame
                     (arguments.Count > 1 ? charZone(arguments.ElementAt(1).ToUpper()[0]) : charZone('L')),
                     ((arguments.Count > 2 && int.TryParse(arguments.ElementAt(2), out int parsedValue)) ? parsedValue : 20)
                     );
-
-                //if (3 < arguments.Count && arguments.ElementAt(3).ToUpper() == "Y")
-                //    AllWeapons.ShuffleList();
                 GG.currRound = (arguments.Count > 3 && int.TryParse(arguments.ElementAt(3), out int roundSet)) ? roundSet : 0;
+
+                if (4 < arguments.Count && arguments.ElementAt(4).ToUpper() == "Y")
+                    AllWeapons.ShuffleList();
 
                 foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
                 {
