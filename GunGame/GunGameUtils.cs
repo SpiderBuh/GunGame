@@ -1,13 +1,20 @@
 ﻿using CustomPlayerEffects;
 using Interactables.Interobjects;
 using Interactables.Interobjects.DoorUtils;
+using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
+using InventorySystem.Items.Jailbird;
+using InventorySystem.Items.MarshmallowMan;
+using InventorySystem.Items.ToggleableLights.Lantern;
 using MapGeneration;
 using PlayerRoles;
+using PlayerRoles.PlayableScps.Scp049.Zombies;
+using PlayerRoles.PlayableScps.Scp3114;
 using PlayerStatsSystem;
 using PluginAPI.Core;
+using PluginAPI.Roles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -108,7 +115,8 @@ namespace GunGame
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
             new Gat(ItemType.GunCOM15),
-            //new Gat(ItemType.Flashlight)
+            new Gat(ItemType.Lantern) //Bonk Stick
+            //new Gat(ItemType.Jailbird)
         };
 
         /// <summary>
@@ -353,6 +361,7 @@ namespace GunGame
                 plr.ReceiveHint("You are unable to spawn. Try rejoining", 10);
                 return;
             }
+            Vector3 deathPosition = plr.Position;
             //if (plrStats.flags.HasFlag(GGPlayerFlags.alive))
             //    return;
             int level = FFA||plrStats.flags.HasFlag(GGPlayerFlags.preFL) ? 3 : Mathf.Clamp((int)Math.Round((double)plrStats.Score / AllWeapons.Count * 3), 0, 2);
@@ -363,8 +372,7 @@ namespace GunGame
             plr.ReferenceHub.playerEffectsController.ChangeState<Scp1853>((byte)plrStats.killsLeft, 99999, false);
             plr.AddItem(ItemType.ArmorCombat);
             plr.AddItem(ItemType.Painkillers);
-            plr.AddItem(ItemType.Radio);
-            plr.AddItem(ItemType.Flashlight);
+            //plr.AddItem(ItemType.Radio);
             plr.SendBroadcast($"Kills left: {plrStats.killsLeft}", 5);
             plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5, false);
             foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
@@ -372,21 +380,23 @@ namespace GunGame
             plrStats.flags |= GGPlayerFlags.alive;
             MEC.Timing.CallDelayed(4, () =>
             {
+                RollSpawns(deathPosition);
                 plrStats.flags |= GGPlayerFlags.onMap;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
+            plr.AddItem(ItemType.Flashlight);
                 GiveGun(plr, 1.5f);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(100, 3, true);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 1, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
-                if (FFA) RollSpawns();
             });
         }
 
         ///<summary>Gives player their next gun and equips it, and removes old gun</summary>
         public void GiveGun(Player plr, float delay = 0)
         {
+            
             if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.flags.HasFlag(GGPlayerFlags.spawned))
                 return;
 
@@ -396,6 +406,10 @@ namespace GunGame
                         plr.RemoveItem(item);
             if (plrStats.killsLeft <= 2)
                 plrStats.flags |= GGPlayerFlags.preFL;
+            if (plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
+            {
+                plr.RemoveItems(ItemType.Flashlight);
+            }
             MEC.Timing.CallDelayed(delay, () =>
         {
             Gat currGun = AllWeapons.ElementAt(plrStats.Score);

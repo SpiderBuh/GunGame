@@ -1,4 +1,4 @@
-﻿using Footprinting;
+﻿/*using Footprinting;
 using Mirror;
 using PlayerRoles;
 using PlayerRoles.FirstPersonControl;
@@ -20,10 +20,12 @@ namespace GunGame.HitRegModules
         public override bool AllowSelfDamage => false;
         private readonly Vector3 MoveDirection;
 
-        public override float Damage { get; protected set; }
+        //public override float Damage { get; private set; }
         public bool Backstab { get; protected set; }
 
         public override string ServerLogsText => $"{(Backstab ? "Massively skill issued" : "Skill issued")} by {Attacker.Nickname}";
+
+        //public override float Damage { get => throw new NotImplementedException(); internal set => throw new NotImplementedException(); }
 
         public KnifeDamageHandler()
         {
@@ -76,4 +78,4 @@ namespace GunGame.HitRegModules
             deathReason = reader.ReadString();
         }
     }
-}
+}*/

@@ -1,4 +1,4 @@
-﻿using Decals;
+﻿/*using Decals;
 using GunGame.HitRegModules;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
@@ -68,7 +68,7 @@ namespace GunGame
             if (!(HitTarget is HitboxIdentity bodyPart) || !ReferenceHub.TryGetHubNetID(message.TargetNetId, out var hub))
             {
                 HitTarget.Damage(damage, new KnifeDamageHandler(Hub, damage, Hub.PlayerCameraReference.forward), HitRay.point);
-                Hitmarker.SendHitmarker(Hub, 0.5f);
+                //Hitmarker.SendHitmarker(Hub, 0.5f);
                 return;
             }
 
@@ -81,7 +81,7 @@ namespace GunGame
                 default:
                     damage = 15;
                     HitTarget.Damage(damage, new KnifeDamageHandler(Hub, damage, Hub.PlayerCameraReference.forward), HitRay.point);
-                    Hitmarker.SendHitmarker(Hub, 0.5f);
+                    //Hitmarker.SendHitmarker(Hub, 0.5f);
                     return;
             }
 
@@ -90,10 +90,10 @@ namespace GunGame
             if (pos.z < 0 && Math.Abs(pos.x) < Math.Pow(4, (-pos.z) - 0.25f))
                 backstabbed = true;//damage *= 10; //Backstab calculation ^
             hub.playerStats.DealDamage(new KnifeDamageHandler(Hub, damage, Hub.PlayerCameraReference.forward, backstabbed));
-            Hitmarker.SendHitmarker(Hub, backstabbed ? 5 : 1);
+            //Hitmarker.SendHitmarker(Hub, backstabbed ? 5 : 1);
 
         }
 
 
     }
-}
+}*/

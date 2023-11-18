@@ -4,7 +4,8 @@ using GunGame.HitRegModules;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.FunctionalParts;
-using InventorySystem.Items.Flashlight;
+using InventorySystem.Items.Jailbird;
+using Mirror;
 using PlayerRoles;
 using PluginAPI.Core;
 using PluginAPI.Core.Attributes;
@@ -28,16 +29,22 @@ namespace GunGame
             GameInProgress = false;
         }
 
-       /* [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
+        [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
         public void KnifeStab(PlayerToggleFlashlightEvent args)
         {
-            if (GameInProgress || args.Player.IsTutorial)
+            if (GameInProgress && (args.Item.ItemTypeId == ItemType.Flashlight || args.Item.ItemTypeId == ItemType.Lantern) || args.Player.IsTutorial)
             {
-                var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem/, args.Player.ReferenceHub);
-                if (stab.ClientCalculateHit(out var shot))
-                    stab.ServerProcessShot(shot);
+                
+                bool anyDamaged = Bonk.Bonketh(args.Player);
+                if (anyDamaged)
+                {
+                    Hitmarker.SendHitmarkerDirectly(args.Player.ReferenceHub, 1f);
+                }
+                //var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem*/, args.Player.ReferenceHub);
+                //if (stab.ClientCalculateHit(out var shot))
+                //    stab.ServerProcessShot(shot);
             }
-        }*/
+        }
 
         [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
         public void PlayerDeath(PlayerDyingEvent args)
@@ -60,11 +67,6 @@ namespace GunGame
                 else
                 {
                     plr.AddItem(ItemType.Medkit);
-                    /*if (args.DamageHandler is KnifeDamageHandler knifed)
-                    {
-                        GG.RemoveScore(plr);
-                    plr.ReceiveHint($"<color=red>{atckr.Nickname} just knifed you xD ({atckrStats.killsLeft})</color>", 5);
-                    } else*/
                     plr.ReceiveHint($"{atckr.Nickname} killed you ({atckrStats.killsLeft})", 2);
                     if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
                     {
@@ -74,7 +76,7 @@ namespace GunGame
                 }
             }
             catch (Exception) { }
-            GG.RollSpawns(plr.Position);
+            //GG.RollSpawns(plr.Position);
             MEC.Timing.CallDelayed(1, () =>
             {
                 GG.SpawnPlayer(plr);
@@ -295,12 +297,11 @@ namespace GunGame
             }
         }
 
-/*
+
         [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
         public void CoinFlip(PlayerCoinFlipEvent args)
         {
             var plr = args.Player;
-            var tails = args.IsTails;
             plr.ReceiveHint("Cheater", 4);
             GG.AddScore(plr);
             try
@@ -309,11 +310,12 @@ namespace GunGame
                 { GG.TriggerWin(plr); });                
             }
             catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
-        }*
+        }
 
         [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
         public void GunUnload(PlayerUnloadWeaponEvent args)
         {
+            args.Player.ReceiveHint("Cheater", 1);
             GG.AddScore(args.Player);
         } /**/
     }

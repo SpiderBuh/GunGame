@@ -31,13 +31,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Commands\ForceFlags.cs" />
     <Compile Include="Commands\FixPlayerCommand.cs" />
     <Compile Include="Commands\GetLeaderboardCommand.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
+    <Compile Include="HitRegModules\Bonk.cs" />
     <Compile Include="HitRegModules\GrenadeLauncherHitreg.cs" />
     <Compile Include="HitRegModules\KnifeHitreg.cs" />
     <Compile Include="HitRegModules\KnifeDamageHandler.cs" />
-    <Compile Include="HitRegModules\oldKnifeHitreg.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="GunGameEventCommand.cs" />
     <Compile Include="GunGameUtils.cs" />
@@ -82,6 +83,7 @@
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.AudioModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL" />
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>

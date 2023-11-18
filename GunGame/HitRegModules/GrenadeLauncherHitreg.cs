@@ -1,4 +1,4 @@
-﻿using Discord;
+﻿/*using Discord;
 using Footprinting;
 using InventorySystem;
 using InventorySystem.Items.Firearms;
@@ -42,4 +42,4 @@ namespace GunGame.HitRegModules
         }
     }
 
-}
+}*/
