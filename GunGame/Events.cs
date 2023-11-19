@@ -298,7 +298,7 @@ namespace GunGame
         }
 
 
-        [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
+    /*    [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
         public void CoinFlip(PlayerCoinFlipEvent args)
         {
             var plr = args.Player;
