@@ -32,7 +32,7 @@ namespace GunGame
             var plrCount = Player.GetPlayers().Count();
             bool ffa = rnd.Next(0, 2) == 1;
             FacilityZone trgtZone = (FacilityZone)rnd.Next(1, plrCount < 20 ? 5 : 6);
-            int trgtKills = UnityEngine.Mathf.Clamp(plrCount * 5 - 10, 10, 30);
+            int trgtKills = UnityEngine.Mathf.Clamp(plrCount * 4 - 10, 10, 30);
 
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
             GG.Start();

@@ -29,7 +29,6 @@ namespace GunGame
 
         public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S/O)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
 
-        public static GunGameUtils GG;
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
@@ -42,8 +41,8 @@ namespace GunGame
                     );
                 GG.currRound = (arguments.Count > 3 && int.TryParse(arguments.ElementAt(3), out int roundSet)) ? roundSet : 0;
 
-                if (4 < arguments.Count && arguments.ElementAt(4).ToUpper() == "Y")
-                    AllWeapons.ShuffleList();
+                /*if (4 < arguments.Count && arguments.ElementAt(4).ToUpper() == "Y")
+                    AllWeapons.ShuffleList();*/
 
                 GG.Start();
 

@@ -73,9 +73,9 @@ namespace GunGame
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
             new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
-        };
+        //};
 
-        public readonly List<Gat> Tier2 = new List<Gat>() {
+        //public readonly List<Gat> Tier2 = new List<Gat>() {
            // new Gat(ItemType.SCP330), // pink candy
            // new Gat(ItemType.MicroHID, 1),
 
@@ -90,9 +90,9 @@ namespace GunGame
             //new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
 
             new Gat(ItemType.GunFSP9, 0x2922), //D-boy genocide time!
-        };
+        //};
 
-        public readonly List<Gat> Tier3 = new List<Gat>() {
+        //public readonly List<Gat> Tier3 = new List<Gat>() {
             new Gat(ItemType.GunA7, 1),
 
             new Gat(ItemType.GunShotgun, 0x245), //Spray n pray
@@ -107,12 +107,11 @@ namespace GunGame
             new Gat(ItemType.GrenadeHE, 4),
 
             new Gat(ItemType.GunAK), //Random
-        };
+        //};
 
-        public readonly List<Gat> Tier4 = new List<Gat>() {
+        //public readonly List<Gat> Tier4 = new List<Gat>() {
             new Gat(ItemType.GunCom45, 1),
 
-            new Gat(ItemType.GunCOM18), //Random
 
             new Gat(ItemType.GunFSP9), //Random
 
@@ -120,7 +119,8 @@ namespace GunGame
         };
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
-            new Gat(ItemType.GunCOM15),
+            new Gat(ItemType.GunCOM18), //Random
+            //new Gat(ItemType.GunCOM15),
             new Gat(ItemType.Lantern) //Bonk
             //new Gat(ItemType.Jailbird)
         };
@@ -128,7 +128,7 @@ namespace GunGame
         /// <summary>
         /// The number of possible guns, EXCLUDING the final levels
         /// </summary>
-        public byte NumGuns => (byte)(Tier1.Count + Tier2.Count + Tier3.Count + Tier4.Count);
+        public byte NumGuns => (byte)(Tier1.Count);// + Tier2.Count + Tier3.Count + Tier4.Count);
         /// <summary>
         /// The total number of guns this round, INCLUDING the final levels
         /// </summary>
@@ -170,7 +170,7 @@ namespace GunGame
         {
             FFA = ffa;
             zone = targetZone;
-            SetNumWeapons((byte)Mathf.Clamp(numKills, 2, 255));
+            AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 2)).Concat(FinalTier).ToList();
 
             GameStarted = false;
             LoadSpawns(true);
@@ -196,8 +196,8 @@ namespace GunGame
 
             if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
             {
-                ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
-                ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());
+                /*ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
+                ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());*/
 
                 Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
                 Grandma.NetworkInfo = new PickupSyncInfo
@@ -222,7 +222,8 @@ namespace GunGame
             GameInProgress = true;
             Round.IsLocked = true;
             DecontaminationController.Singleton.enabled = false;
-            //Round.Start();
+            if (!Round.IsRoundStarted)
+                Round.Start();
             Server.FriendlyFire = FFA;
             GameStarted = true;
         }
@@ -244,7 +245,7 @@ namespace GunGame
             public byte Score { get; set; }
             public short InnerPos { get; set; }
             public bool IsNtfTeam => flags.HasFlag(GGPlayerFlags.NTF);
-            public int killsLeft => GunGameEventCommand.GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
+            public int killsLeft => GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
             public void SetTeam(bool NTF) => flags = flags & ~GGPlayerFlags.NTF | (NTF ? GGPlayerFlags.NTF : 0);
             public void inc() => InnerPos = ++InnerPosition[++Score];
 
@@ -280,27 +281,31 @@ namespace GunGame
             return list;
         }
 
-        public void SetNumWeapons(byte num = 20)
+        /*public void SetNumWeapons(byte num = 20)
         {
             num -= 2; //Excludes the final levels in shuffle target
+
             byte T1 = (byte)Math.Round((double)Tier1.Count / NumGuns * num);
             byte T2 = (byte)Math.Round((double)Tier2.Count / NumGuns * num);
             byte T3 = (byte)Math.Round((double)Tier3.Count / NumGuns * num);
             byte T4 = (byte)(num - T1 - T2 - T3);
 
             AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).Concat(FinalTier).ToList();
-        }
+        }*/
 
         ///<summary>Takes in a list and returns a list of the target length comprising of the input's values</summary>
         public List<Gat> ProcessTier(List<Gat> tier, byte target)
         {
             List<Gat> outTier = tier.OrderBy(w => Guid.NewGuid()).Take(target).ToList();
-            short additionalCount = (short)(target - tier.Count);
-            while (additionalCount > 0)
+            var additionalCount = target - tier.Count;
+            if (additionalCount > 0)
             {
-                short index = (short)new System.Random().Next(tier.Count);
-                outTier.Add(tier[index]);
-                additionalCount--;
+                System.Random rnd = new System.Random();
+                while (additionalCount > 0)
+                {
+                    outTier.Add(tier[rnd.Next(tier.Count)]);
+                    additionalCount--;
+                }
             }
             return outTier;
         }
