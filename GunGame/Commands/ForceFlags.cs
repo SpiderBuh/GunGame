@@ -29,7 +29,7 @@ namespace GunGame.Commands
                     return false;
                 response += $"\nID: \"{plrNetID}\"";
 
-                if (!int.TryParse(arguments.ElementAt(2), out int flags))
+                if (!int.TryParse(arguments.ElementAt(1), out int flags))
                     return false;
                 response += $"\tflags: \"{flags}\"";
 

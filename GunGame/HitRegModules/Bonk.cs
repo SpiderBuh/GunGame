@@ -47,20 +47,21 @@ namespace GunGame.HitRegModules
 
 
 
-                Vector3 position = playerCameraReference.position + playerCameraReference.forward * 0.75f;
-                _detectionsLen = 0;
-                int num = Physics.OverlapSphereNonAlloc(position, 0.5f, DetectedColliders, DetectionMask);
-                if (num > 0)
+            Vector3 position1 = playerCameraReference.position + playerCameraReference.forward * 0.5f;
+            Vector3 position2 = playerCameraReference.position + playerCameraReference.forward * 1.25f;
+            _detectionsLen = 0;
+            int num = Physics.OverlapCapsuleNonAlloc(position1, position2, 0.5f, DetectedColliders, DetectionMask);
+            if (num > 0)
+            {
+                DetectedNetIds.Clear();
+                for (int i = 0; i < num; i++)
                 {
-                    DetectedNetIds.Clear();
-                    for (int i = 0; i < num; i++)
+                    if (DetectedColliders[i].TryGetComponent<IDestructible>(out var component) && (!Physics.Linecast(playerCameraReference.position, component.CenterOfMass, out var hitInfo, LinecastMask) || !(hitInfo.collider != DetectedColliders[i])) && DetectedNetIds.Add(component.NetworkId))
                     {
-                        if (DetectedColliders[i].TryGetComponent<IDestructible>(out var component) && (!Physics.Linecast(playerCameraReference.position, component.CenterOfMass, out var hitInfo, LinecastMask) || !(hitInfo.collider != DetectedColliders[i])) && DetectedNetIds.Add(component.NetworkId))
-                        {
-                            DetectedDestructibles[_detectionsLen++] = component;
-                        }
+                        DetectedDestructibles[_detectionsLen++] = component;
                     }
                 }
+            }
 
 
 
@@ -87,23 +88,23 @@ namespace GunGame.HitRegModules
             ReferenceHub owner = Bonker.ReferenceHub;
             bool result = false;
 
-                BacktrackedPlayers.Add(new FpcBacktracker(owner, relativePos.Position, quat));
+            BacktrackedPlayers.Add(new FpcBacktracker(owner, relativePos.Position, quat));
 
-                foreach (var bonkee in bonked)
-                {
+            foreach (var bonkee in bonked)
+            {
 
-                        BacktrackedPlayers.Add(new FpcBacktracker(bonkee.Key, bonkee.Value.Position));
-                    
-                }
-            
+                BacktrackedPlayers.Add(new FpcBacktracker(bonkee.Key, bonkee.Value.Position));
+
+            }
+
 
             //DetectDestructibles(Bonker.ReferenceHub.PlayerCameraReference);
 
 
 
-            position = playerCameraReference.position + playerCameraReference.forward * 0.75f;
+            //position = playerCameraReference.position + playerCameraReference.forward * 1.25f;
             _detectionsLen = 0;
-            num = Physics.OverlapSphereNonAlloc(position, 0.5f, DetectedColliders, DetectionMask);
+            num = Physics.OverlapCapsuleNonAlloc(position1, position2, 0.5f, DetectedColliders, DetectionMask);
             if (num > 0)
             {
                 DetectedNetIds.Clear();
@@ -117,7 +118,7 @@ namespace GunGame.HitRegModules
             }
 
 
-            float num2 = 30;
+            float num2 = 49;
             Vector3 forward = Bonker.ReferenceHub.PlayerCameraReference.forward;
             for (int j = 0; j < _detectionsLen; j++)
             {

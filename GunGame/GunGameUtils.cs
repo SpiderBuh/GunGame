@@ -62,7 +62,7 @@ namespace GunGame
 
             new Gat(ItemType.GunE11SR, 0x542504), //The Sleek
 
-            new Gat(ItemType.GunRevolver, 0x452), //The Head-popper
+            //new Gat(ItemType.GunRevolver, 0x452), //The Head-popper
 
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
@@ -81,7 +81,7 @@ namespace GunGame
 
             new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
 
-            new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
+            //new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
 
             new Gat(ItemType.GunFSP9, 0x2922), //D-boy genocide time!
         };
@@ -115,7 +115,7 @@ namespace GunGame
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
             new Gat(ItemType.GunCOM15),
-            new Gat(ItemType.Lantern) //Bonk Stick
+            new Gat(ItemType.Lantern) //Bonk
             //new Gat(ItemType.Jailbird)
         };
 
@@ -345,7 +345,7 @@ namespace GunGame
         {
             if (AllPlayers.TryGetValue(plr.UserId, out var plrStats))
             {
-                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL;
+                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 if (plrStats.IsNtfTeam)
                     Tntf--;
                 else
@@ -383,7 +383,7 @@ namespace GunGame
                 RollSpawns(deathPosition);
                 plrStats.flags |= GGPlayerFlags.onMap;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
-            plr.AddItem(ItemType.Flashlight);
+
                 GiveGun(plr, 1.5f);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(100, 3, true);
@@ -406,10 +406,12 @@ namespace GunGame
                         plr.RemoveItem(item);
             if (plrStats.killsLeft <= 2)
                 plrStats.flags |= GGPlayerFlags.preFL;
-            if (plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
-            {
-                plr.RemoveItems(ItemType.Flashlight);
-            }
+
+            if (plrStats.killsLeft <= 1)
+                plrStats.flags |= GGPlayerFlags.finalLevel;
+
+            plr.RemoveItems(ItemType.Flashlight);
+            
             MEC.Timing.CallDelayed(delay, () =>
         {
             Gat currGun = AllWeapons.ElementAt(plrStats.Score);
@@ -434,7 +436,8 @@ namespace GunGame
             else
                 for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
                     plr.AddItem(currGun.ItemType);
-
+            if (!plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
+                plr.AddItem(ItemType.Flashlight);
             MEC.Timing.CallDelayed(0.1f, () =>
             {
                 plr.CurrentItem = weapon;
@@ -563,7 +566,8 @@ namespace GunGame
             }
             GunGameDataManager.AddScores(playersData, scores, round);
             GunGameDataManager.UserScrub(dnts);
-            Server.SendBroadcast(endStats.getRoundScreen() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 15);
+            Server.SendBroadcast(endStats.RoundScreen1(), 10);
+            Server.SendBroadcast(endStats.RoundScreen2() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
             AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x1881, true);
             firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x1881);
@@ -606,6 +610,28 @@ namespace GunGame
                 if (scr.NTF && team != winningTeam.FFA)
                     NTF.Add(line);
                 else Chaos.Add(line);
+            }
+            public string RoundScreen1()
+            {
+                switch (team)
+                {
+                    case winningTeam.NTF:
+                        return $"Results:\n<color=blue>NTF:\n{string.Join("\n", NTF.Take(3))}";
+                    case winningTeam.Chaos:
+                        return $"Results:\n<color=green>Chaos:\n{string.Join("\n", Chaos.Take(3))}";
+                }
+                return "Results:\n" + string.Join("\n", Chaos);
+            }
+            public string RoundScreen2()
+            {
+                switch (team)
+                {
+                    case winningTeam.NTF:
+                        return $"<color=green>Chaos:\n{string.Join("\n", Chaos.Take(3))}";
+                    case winningTeam.Chaos:
+                        return $"<color=blue>NTF:\n{string.Join("\n", NTF.Take(3))}";
+                }
+                return string.Join("\n", Chaos.Skip(3).Take(3));
             }
             public string getRoundScreen()
             {
