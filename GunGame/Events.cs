@@ -1,11 +1,6 @@
-﻿using CustomCulling;
-using CustomPlayerEffects;
+﻿using CustomPlayerEffects;
 using GunGame.HitRegModules;
-using InventorySystem.Items;
-using InventorySystem.Items.Firearms;
-using InventorySystem.Items.Firearms.FunctionalParts;
-using InventorySystem.Items.Jailbird;
-using Mirror;
+using MapGeneration;
 using PlayerRoles;
 using PlayerStatsSystem;
 using PluginAPI.Core;
@@ -30,76 +25,17 @@ namespace GunGame
             GameInProgress = false;
         }
 
- 						 [PluginEvent(ServerEventType.RoundStart)]
+        [PluginEvent(ServerEventType.RoundStart)]
         public void OnRoundStart(RoundStartEvent args)
         {
-										System.Random rnd = new System.Random();
-										plrCount = Player.GetPlayers().Count();
-										bool ffa = rnd.Next(0, 1) == 1;
-										FacilityZone trgtZone = FacilityZone.LightContainment;
-										            switch (rnd.Next(1, 5))
-            {
-                case 2:
-                    trgtZone = FacilityZone.HeavyContainment;
-																	break;
-                case 3:
-                    trgtZone = FacilityZone.Entrance;
-																	break;
-                case 4:
-                    trgtZone = FacilityZone.Surface;
-																	break;
-                case 5:
-																	if (plrCount > 20)
-                    			trgtZone = FacilityZone.Other;
-																	break;
-            }
-            
-										int trgtKills = Mathf.Clamp(plrCount*5-10, 10, 30);
+            System.Random rnd = new System.Random();
+            var plrCount = Player.GetPlayers().Count();
+            bool ffa = rnd.Next(0, 2) == 1;
+            FacilityZone trgtZone = (FacilityZone)rnd.Next(1, plrCount < 20 ? 5 : 6);
+            int trgtKills = UnityEngine.Mathf.Clamp(plrCount * 5 - 10, 10, 30);
+
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
-
-									  foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
-                {
-                    if (plr.IsServer)
-                        continue;
-                    GG.AssignTeam(plr);
-                    GG.SpawnPlayer(plr);
-
-                    if (plr.DoNotTrack)
-                        plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
-                }
-                Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=yellow>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
-
-                if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
-                {
-                    ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
-                    ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());
-
-                    Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
-                    Grandma.NetworkInfo = new PickupSyncInfo
-                    {
-                        ItemId = gma.ItemTypeId,
-                        WeightKg = gma.Weight,
-                        Serial = ItemSerialGenerator.GenerateNext()
-                    };
-                    Grandma.State = Scp244State.Active;
-                    NetworkServer.Spawn(Grandma.gameObject);
-
-                    Scp244DeployablePickup Grandpa = UnityEngine.Object.Instantiate(gpa.PickupDropModel, new Vector3(11.3f, 997.47f, -35.3f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
-                    Grandpa.NetworkInfo = new PickupSyncInfo
-                    {
-                        ItemId = gpa.ItemTypeId,
-                        WeightKg = gpa.Weight,
-                        Serial = ItemSerialGenerator.GenerateNext()
-                    };
-                    Grandpa.State = Scp244State.Active;
-                    NetworkServer.Spawn(Grandpa.gameObject);
-                }
-                GameInProgress = true;
-                Round.IsLocked = true;
-                DecontaminationController.Singleton.enabled = false;
-                Round.Start();
-                Server.FriendlyFire = FFA;
-                GameStarted = true;
+            GG.Start();
         }
 
         [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
@@ -107,7 +43,7 @@ namespace GunGame
         {
             if (GameInProgress && (args.Item.ItemTypeId == ItemType.Flashlight || args.Item.ItemTypeId == ItemType.Lantern) || args.Player.IsTutorial)
             {
-                
+
                 bool anyDamaged = Bonk.Bonketh(args.Player);
                 if (anyDamaged)
                 {
@@ -142,7 +78,7 @@ namespace GunGame
                 else
                 {
                     plr.AddItem(ItemType.Medkit);
-                    plr.ReceiveHint($"{(downgrade?"<color=red>":"")}{atckr.Nickname} {(downgrade?"\"knifed\"":"killed")} you ({atckrStats.killsLeft})", 2);
+                    plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
                     if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
                     {
                         GG.AddScore(atckr);
@@ -375,25 +311,25 @@ namespace GunGame
         }
 
 
-       /* [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
-        public void CoinFlip(PlayerCoinFlipEvent args)
-        {
-            var plr = args.Player;
-            plr.ReceiveHint("Cheater", 4);
-            GG.AddScore(plr);
-            try
-            {
-                MEC.Timing.CallDelayed(5f, () =>
-                { GG.TriggerWin(plr); });                
-            }
-            catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
-        }
+        /* [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
+         public void CoinFlip(PlayerCoinFlipEvent args)
+         {
+             var plr = args.Player;
+             plr.ReceiveHint("Cheater", 4);
+             GG.AddScore(plr);
+             try
+             {
+                 MEC.Timing.CallDelayed(5f, () =>
+                 { GG.TriggerWin(plr); });                
+             }
+             catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
+         }
 
-        [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
-        public void GunUnload(PlayerUnloadWeaponEvent args)
-        {
-            args.Player.ReceiveHint("Cheater", 1);
-            GG.AddScore(args.Player);
-        } /**/
+         [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
+         public void GunUnload(PlayerUnloadWeaponEvent args)
+         {
+             args.Player.ReceiveHint("Cheater", 1);
+             GG.AddScore(args.Player);
+         } /**/
     }
 }
