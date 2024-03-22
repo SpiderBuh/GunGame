@@ -9,6 +9,7 @@ using LightContainmentZoneDecontamination;
 using MapGeneration;
 using Mirror;
 using PlayerRoles;
+using PlayerStatsSystem;
 using PluginAPI.Core;
 using PluginAPI.Core.Attributes;
 using PluginAPI.Enums;
@@ -128,12 +129,14 @@ namespace GunGame
             var atckr = args.Attacker ?? Server.Instance;
             var plr = args.Player;
 
+            bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
+
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return;
             try
             {
                 plr.ClearInventory();
-                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL;
+                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     plr.ReceiveHint("Shrimply a krill issue", 3);
@@ -142,11 +145,13 @@ namespace GunGame
                 else
                 {
                     plr.AddItem(ItemType.Medkit);
-                    plr.ReceiveHint($"{atckr.Nickname} killed you ({atckrStats.killsLeft})", 2);
+                    plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
                     if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
                     {
                         GG.AddScore(atckr);
-                        atckr.ReceiveHint($"You killed {plr.Nickname} ({plrStats.killsLeft})", 2);
+                        atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
+                        if (downgrade)
+                            GG.RemoveScore(plr);
                     }
                 }
             }
@@ -371,27 +376,5 @@ namespace GunGame
                     ExplosionUtils.ServerExplode(plr.ReferenceHub);
             }
         }
-
-
-        /*    [PluginEvent(ServerEventType.PlayerCoinFlip)] // For testing purposes when I don't have test subjects to experiment on
-            public void CoinFlip(PlayerCoinFlipEvent args)
-            {
-                var plr = args.Player;
-                plr.ReceiveHint("Cheater", 4);
-                GG.AddScore(plr);
-                try
-                {
-                    MEC.Timing.CallDelayed(5f, () =>
-                    { GG.TriggerWin(plr); });                
-                }
-                catch (Exception ex) { plr.SendBroadcast($"Something broke:\n{ex.Message}\n{ex.TargetSite}\n{ex.Source}", 15); }
-            }
-
-            [PluginEvent(ServerEventType.PlayerUnloadWeapon)]
-            public void GunUnload(PlayerUnloadWeaponEvent args)
-            {
-                args.Player.ReceiveHint("Cheater", 1);
-                GG.AddScore(args.Player);
-            } /**/
     }
 }

@@ -1,4 +1,5 @@
 ﻿using CustomPlayerEffects;
+using Footprinting;
 using Interactables.Interobjects;
 using Interactables.Interobjects.DoorUtils;
 using InventorySystem;
@@ -7,8 +8,12 @@ using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
 using InventorySystem.Items.Jailbird;
 using InventorySystem.Items.MarshmallowMan;
+using InventorySystem.Items.Pickups;
 using InventorySystem.Items.ToggleableLights.Lantern;
+using InventorySystem.Items.Usables.Scp244;
+using LightContainmentZoneDecontamination;
 using MapGeneration;
+using Mirror;
 using PlayerRoles;
 using PlayerRoles.PlayableScps.Scp049.Zombies;
 using PlayerRoles.PlayableScps.Scp3114;
@@ -19,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Utils;
 using static GunGame.Plugin;
 
 namespace GunGame
@@ -62,14 +68,14 @@ namespace GunGame
 
             new Gat(ItemType.GunE11SR, 0x542504), //The Sleek
 
-            new Gat(ItemType.GunRevolver, 0x452), //The Head-popper
+            //new Gat(ItemType.GunRevolver, 0x452), //The Head-popper
 
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
             new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
-        };
+        //};
 
-        public readonly List<Gat> Tier2 = new List<Gat>() {
+        //public readonly List<Gat> Tier2 = new List<Gat>() {
            // new Gat(ItemType.SCP330), // pink candy
            // new Gat(ItemType.MicroHID, 1),
 
@@ -81,12 +87,12 @@ namespace GunGame
 
             new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
 
-            new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
+            //new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
 
             new Gat(ItemType.GunFSP9, 0x2922), //D-boy genocide time!
-        };
+        //};
 
-        public readonly List<Gat> Tier3 = new List<Gat>() {
+        //public readonly List<Gat> Tier3 = new List<Gat>() {
             new Gat(ItemType.GunA7, 1),
 
             new Gat(ItemType.GunShotgun, 0x245), //Spray n pray
@@ -101,12 +107,11 @@ namespace GunGame
             new Gat(ItemType.GrenadeHE, 4),
 
             new Gat(ItemType.GunAK), //Random
-        };
+        //};
 
-        public readonly List<Gat> Tier4 = new List<Gat>() {
+        //public readonly List<Gat> Tier4 = new List<Gat>() {
             new Gat(ItemType.GunCom45, 1),
 
-            new Gat(ItemType.GunCOM18), //Random
 
             new Gat(ItemType.GunFSP9), //Random
 
@@ -114,15 +119,16 @@ namespace GunGame
         };
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
-            new Gat(ItemType.GunCOM15),
-            new Gat(ItemType.Lantern) //Bonk Stick
+            new Gat(ItemType.GunCOM18), //Random
+            //new Gat(ItemType.GunCOM15),
+            new Gat(ItemType.Lantern) //Bonk
             //new Gat(ItemType.Jailbird)
         };
 
         /// <summary>
         /// The number of possible guns, EXCLUDING the final levels
         /// </summary>
-        public byte NumGuns => (byte)(Tier1.Count + Tier2.Count + Tier3.Count + Tier4.Count);
+        public byte NumGuns => (byte)(Tier1.Count);// + Tier2.Count + Tier3.Count + Tier4.Count);
         /// <summary>
         /// The total number of guns this round, INCLUDING the final levels
         /// </summary>
@@ -164,7 +170,7 @@ namespace GunGame
         {
             FFA = ffa;
             zone = targetZone;
-            SetNumWeapons((byte)Mathf.Clamp(numKills, 2, 255));
+            AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 2)).Concat(FinalTier).ToList();
 
             GameStarted = false;
             LoadSpawns(true);
@@ -173,6 +179,53 @@ namespace GunGame
             Tntf = 0;
             Tchaos = 0;
             credits = 0;
+        }
+        public void Start()
+        {
+            foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
+            {
+                if (plr.IsServer)
+                    continue;
+                AssignTeam(plr);
+                SpawnPlayer(plr);
+
+                if (plr.DoNotTrack)
+                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+            }
+            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=yellow>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+
+            if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
+            {
+                /*ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
+                ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());*/
+
+                Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
+                Grandma.NetworkInfo = new PickupSyncInfo
+                {
+                    ItemId = gma.ItemTypeId,
+                    WeightKg = gma.Weight,
+                    Serial = ItemSerialGenerator.GenerateNext()
+                };
+                Grandma.State = Scp244State.Active;
+                NetworkServer.Spawn(Grandma.gameObject);
+
+                Scp244DeployablePickup Grandpa = UnityEngine.Object.Instantiate(gpa.PickupDropModel, new Vector3(11.3f, 997.47f, -35.3f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
+                Grandpa.NetworkInfo = new PickupSyncInfo
+                {
+                    ItemId = gpa.ItemTypeId,
+                    WeightKg = gpa.Weight,
+                    Serial = ItemSerialGenerator.GenerateNext()
+                };
+                Grandpa.State = Scp244State.Active;
+                NetworkServer.Spawn(Grandpa.gameObject);
+            }
+            GameInProgress = true;
+            Round.IsLocked = true;
+            DecontaminationController.Singleton.enabled = false;
+            if (!Round.IsRoundStarted)
+                Round.Start();
+            Server.FriendlyFire = FFA;
+            GameStarted = true;
         }
 
         [Flags]
@@ -192,7 +245,7 @@ namespace GunGame
             public byte Score { get; set; }
             public short InnerPos { get; set; }
             public bool IsNtfTeam => flags.HasFlag(GGPlayerFlags.NTF);
-            public int killsLeft => GunGameEventCommand.GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
+            public int killsLeft => GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
             public void SetTeam(bool NTF) => flags = flags & ~GGPlayerFlags.NTF | (NTF ? GGPlayerFlags.NTF : 0);
             public void inc() => InnerPos = ++InnerPosition[++Score];
 
@@ -228,27 +281,31 @@ namespace GunGame
             return list;
         }
 
-        public void SetNumWeapons(byte num = 20)
+        /*public void SetNumWeapons(byte num = 20)
         {
             num -= 2; //Excludes the final levels in shuffle target
+
             byte T1 = (byte)Math.Round((double)Tier1.Count / NumGuns * num);
             byte T2 = (byte)Math.Round((double)Tier2.Count / NumGuns * num);
             byte T3 = (byte)Math.Round((double)Tier3.Count / NumGuns * num);
             byte T4 = (byte)(num - T1 - T2 - T3);
 
             AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).Concat(FinalTier).ToList();
-        }
+        }*/
 
         ///<summary>Takes in a list and returns a list of the target length comprising of the input's values</summary>
         public List<Gat> ProcessTier(List<Gat> tier, byte target)
         {
             List<Gat> outTier = tier.OrderBy(w => Guid.NewGuid()).Take(target).ToList();
-            short additionalCount = (short)(target - tier.Count);
-            while (additionalCount > 0)
+            var additionalCount = target - tier.Count;
+            if (additionalCount > 0)
             {
-                short index = (short)new System.Random().Next(tier.Count);
-                outTier.Add(tier[index]);
-                additionalCount--;
+                System.Random rnd = new System.Random();
+                while (additionalCount > 0)
+                {
+                    outTier.Add(tier[rnd.Next(tier.Count)]);
+                    additionalCount--;
+                }
             }
             return outTier;
         }
@@ -345,7 +402,7 @@ namespace GunGame
         {
             if (AllPlayers.TryGetValue(plr.UserId, out var plrStats))
             {
-                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL;
+                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 if (plrStats.IsNtfTeam)
                     Tntf--;
                 else
@@ -383,7 +440,7 @@ namespace GunGame
                 RollSpawns(deathPosition);
                 plrStats.flags |= GGPlayerFlags.onMap;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
-            plr.AddItem(ItemType.Flashlight);
+
                 GiveGun(plr, 1.5f);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(100, 3, true);
@@ -406,10 +463,12 @@ namespace GunGame
                         plr.RemoveItem(item);
             if (plrStats.killsLeft <= 2)
                 plrStats.flags |= GGPlayerFlags.preFL;
-            if (plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
-            {
-                plr.RemoveItems(ItemType.Flashlight);
-            }
+
+            if (plrStats.killsLeft <= 1)
+                plrStats.flags |= GGPlayerFlags.finalLevel;
+
+            plr.RemoveItems(ItemType.Flashlight);
+            
             MEC.Timing.CallDelayed(delay, () =>
         {
             Gat currGun = AllWeapons.ElementAt(plrStats.Score);
@@ -434,7 +493,8 @@ namespace GunGame
             else
                 for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
                     plr.AddItem(currGun.ItemType);
-
+            if (!plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
+                plr.AddItem(ItemType.Flashlight);
             MEC.Timing.CallDelayed(0.1f, () =>
             {
                 plr.CurrentItem = weapon;
@@ -563,7 +623,8 @@ namespace GunGame
             }
             GunGameDataManager.AddScores(playersData, scores, round);
             GunGameDataManager.UserScrub(dnts);
-            Server.SendBroadcast(endStats.getRoundScreen() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 15);
+            Server.SendBroadcast(endStats.RoundScreen1(), 10);
+            Server.SendBroadcast(endStats.RoundScreen2() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
             AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x1881, true);
             firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x1881);
@@ -606,6 +667,28 @@ namespace GunGame
                 if (scr.NTF && team != winningTeam.FFA)
                     NTF.Add(line);
                 else Chaos.Add(line);
+            }
+            public string RoundScreen1()
+            {
+                switch (team)
+                {
+                    case winningTeam.NTF:
+                        return $"Results:\n<color=blue>NTF:\n{string.Join("\n", NTF.Take(3))}";
+                    case winningTeam.Chaos:
+                        return $"Results:\n<color=green>Chaos:\n{string.Join("\n", Chaos.Take(3))}";
+                }
+                return "Results:\n" + string.Join("\n", Chaos);
+            }
+            public string RoundScreen2()
+            {
+                switch (team)
+                {
+                    case winningTeam.NTF:
+                        return $"<color=green>Chaos:\n{string.Join("\n", Chaos.Take(3))}";
+                    case winningTeam.Chaos:
+                        return $"<color=blue>NTF:\n{string.Join("\n", NTF.Take(3))}";
+                }
+                return string.Join("\n", Chaos.Skip(3).Take(3));
             }
             public string getRoundScreen()
             {
