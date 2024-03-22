@@ -1,30 +1,23 @@
 ﻿using CustomPlayerEffects;
-using Footprinting;
 using Interactables.Interobjects;
 using Interactables.Interobjects.DoorUtils;
 using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
-using InventorySystem.Items.Jailbird;
-using InventorySystem.Items.MarshmallowMan;
 using InventorySystem.Items.Pickups;
-using InventorySystem.Items.ToggleableLights.Lantern;
 using InventorySystem.Items.Usables.Scp244;
 using LightContainmentZoneDecontamination;
 using MapGeneration;
 using Mirror;
 using PlayerRoles;
-using PlayerRoles.PlayableScps.Scp049.Zombies;
-using PlayerRoles.PlayableScps.Scp3114;
 using PlayerStatsSystem;
 using PluginAPI.Core;
-using PluginAPI.Roles;
+using PluginAPI.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Utils;
 using static GunGame.Plugin;
 
 namespace GunGame
@@ -189,10 +182,10 @@ namespace GunGame
                 AssignTeam(plr);
                 SpawnPlayer(plr);
 
-                if (plr.DoNotTrack)
-                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+               // if (plr.DoNotTrack)
+               //     plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
             }
-            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=yellow>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \nRace to the final weapon!", 10, shouldClearPrevious: true);
 
             if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
             {
@@ -560,11 +553,11 @@ namespace GunGame
         {
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.flags.HasFlag(GGPlayerFlags.validFL))
                 return;
-            DateTime now = DateTime.Now;
-            RoundData round = new RoundData(currRound, FFA, zone, NumKillsReq, now, out string roundID);
-            List<PlayerData> playersData = new List<PlayerData>();
-            List<ScoreData> scores = new List<ScoreData>();
-            List<string> dnts = new List<string>();
+            //DateTime now = DateTime.Now;
+            //RoundData round = new RoundData(currRound, FFA, zone, NumKillsReq, now, out string roundID);
+            //List<PlayerData> playersData = new List<PlayerData>();
+            //List<ScoreData> scores = new List<ScoreData>();
+            //List<string> dnts = new List<string>();
             EndingStats endStats = new EndingStats(FFA, plrStats.IsNtfTeam);
             string team = "";
             if (!FFA)
@@ -592,8 +585,8 @@ namespace GunGame
                     continue;
                 }
                 //int teamBonus = (!FFA && (loserEntry.Value.IsNtfTeam == plrStats.IsNtfTeam)) ? 2 : 0;
-                int teamBonus = FFA ? 0 : (int)((~loserEntry.Value.flags ^ plrStats.flags) & GGPlayerFlags.NTF) * 2;
-                int positionScore = Convert.ToInt32((double)(plrsLeft + 1) / SortedPlayers.Count() * 13);
+            //    int teamBonus = FFA ? 0 : (int)((~loserEntry.Value.flags ^ plrStats.flags) & GGPlayerFlags.NTF) * 2;
+            //    int positionScore = Convert.ToInt32((double)(plrsLeft + 1) / SortedPlayers.Count() * 13);
 
                 loser.ClearInventory();
                 if (loser != plr)
@@ -602,27 +595,27 @@ namespace GunGame
                     loser.ReferenceHub.playerEffectsController.EnableEffect<SeveredHands>();
                     loser.Position = plr.Position;
                 }
-                else positionScore = 15;
+            //    else positionScore = 15;
 
-                var totp = positionScore + teamBonus;
+            //    var totp = positionScore + teamBonus;
                 var plce = SortedPlayers.Count() - plrsLeft + 1;
 
-                loser.SendBroadcast(bText + $"\n\n(You came in {plce}{ordinal(plce)} place and got {totp} points)", 15);
+                loser.SendBroadcast(bText + $"\n\n(You came in {plce}{ordinal(plce)} place"/* and got {totp} points)"*/, 15);
 
                 PlayerData plrDat = new PlayerData(loser);
-                ScoreData scrDat = new ScoreData(loser.UserId, roundID, totp, plce, loserEntry.Value.IsNtfTeam);
+                ScoreData scrDat = new ScoreData(loser.UserId, "-1",-1/*roundID, totp*/, plce, loserEntry.Value.IsNtfTeam);
                 endStats.processPlayer(plrDat, scrDat);
-                if (loser.DoNotTrack)
+            /*    if (loser.DoNotTrack)
                     dnts.Add(loser.UserId);
                 else
                 {
                     playersData.Add(plrDat);
                     scores.Add(scrDat);
-                }
+                }*/
                 plrsLeft--;
             }
-            GunGameDataManager.AddScores(playersData, scores, round);
-            GunGameDataManager.UserScrub(dnts);
+            //GunGameDataManager.AddScores(playersData, scores, round);
+            //GunGameDataManager.UserScrub(dnts);
             Server.SendBroadcast(endStats.RoundScreen1(), 10);
             Server.SendBroadcast(endStats.RoundScreen2() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
@@ -636,6 +629,11 @@ namespace GunGame
             {
                 Round.IsLocked = false;
                 Warhead.Detonate();
+
+                MEC.Timing.CallDelayed(10, () =>
+                { 
+                RoundSummary.singleton.ForceEnd();
+                });
             });
         }
 

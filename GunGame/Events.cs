@@ -1,13 +1,16 @@
 ﻿using CustomPlayerEffects;
 using Footprinting;
 using GunGame.HitRegModules;
+using Interactables.Interobjects;
 using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Pickups;
 using InventorySystem.Items.Usables.Scp244;
+using InventorySystem.Items.Usables.Scp330;
 using LightContainmentZoneDecontamination;
 using MapGeneration;
 using Mirror;
+using Org.BouncyCastle.Crypto.Macs;
 using PlayerRoles;
 using PlayerStatsSystem;
 using PluginAPI.Core;
@@ -67,15 +70,15 @@ namespace GunGame
                 GG.AssignTeam(plr);
                 GG.SpawnPlayer(plr);
 
-                if (plr.DoNotTrack)
-                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+                //                if (plr.DoNotTrack)
+                //                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
             }
-            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=yellow>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
+            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \nRace to the final weapon!", 10, shouldClearPrevious: true);
 
             if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
             {
-                ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
-                ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());
+                //    ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
+                //    ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());
 
                 Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
                 Grandma.NetworkInfo = new PickupSyncInfo
@@ -105,22 +108,22 @@ namespace GunGame
             GameStarted = true;
         }
 
-        [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
-        public void KnifeStab(PlayerToggleFlashlightEvent args)
-        {
-            if (GameInProgress && (args.Item.ItemTypeId == ItemType.Flashlight || args.Item.ItemTypeId == ItemType.Lantern) || args.Player.IsTutorial)
-            {
+        /*   [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
+           public void KnifeStab(PlayerToggleFlashlightEvent args)
+           {
+               if (GameInProgress && (args.Item.ItemTypeId == ItemType.Flashlight || args.Item.ItemTypeId == ItemType.Lantern) || args.Player.IsTutorial)
+               {
 
-                bool anyDamaged = Bonk.Bonketh(args.Player);
-                if (anyDamaged)
-                {
-                    Hitmarker.SendHitmarkerDirectly(args.Player.ReferenceHub, 1f);
-                }
-                //var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem*/, args.Player.ReferenceHub);
-                //if (stab.ClientCalculateHit(out var shot))
-                //    stab.ServerProcessShot(shot);
-            }
-        }
+                   bool anyDamaged = Bonk.Bonketh(args.Player);
+                   if (anyDamaged)
+                   {
+                       Hitmarker.SendHitmarkerDirectly(args.Player.ReferenceHub, 1f);
+                   }
+                   //var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem/, args.Player.ReferenceHub);
+                   //if (stab.ClientCalculateHit(out var shot))
+                   //    stab.ServerProcessShot(shot);
+               }
+           }*/
 
         [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
         public void PlayerDeath(PlayerDyingEvent args)
@@ -129,7 +132,7 @@ namespace GunGame
             var atckr = args.Attacker ?? Server.Instance;
             var plr = args.Player;
 
-            bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
+            //bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
 
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return;
@@ -145,13 +148,16 @@ namespace GunGame
                 else
                 {
                     plr.AddItem(ItemType.Medkit);
-                    plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
+                    //plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
+                    plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.killsLeft})", 2);
+
                     if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
                     {
                         GG.AddScore(atckr);
-                        atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
-                        if (downgrade)
-                            GG.RemoveScore(plr);
+                        //    atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
+                        atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.killsLeft})", 2);
+                        //    if (downgrade)
+                        //        GG.RemoveScore(plr);
                     }
                 }
             }
@@ -162,50 +168,6 @@ namespace GunGame
                 GG.SpawnPlayer(plr);
             });
         }
-        /*public void PlayerDeath(PlayerDyingEvent args)
-        {
-            if (!GameInProgress || args.Player == null) return;
-            var atckr = args.Attacker ?? Server.Instance;
-            var plr = args.Player ?? Server.Instance;
-
-            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
-                return;
-            try
-            {
-                plr.ClearInventory();
-                if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
-                {
-                    plr.ReceiveHint("Shrimply a krill issue", 3);
-                    //RemoveScore(plr); //Removes a score if a player dies to natural means
-                }
-                else
-                {
-                    plr.AddItem(ItemType.Medkit);
-
-
-                    if (atckr.Role == RoleTypeId.Scp0492 || (atckr.CurrentItem.ItemTypeId == ItemType.GunCOM15 && !FFA)) //Triggers win if player is on last level
-                    {
-                        GG.TriggerWin(atckr);
-                        return;
-                    }
-
-                    plr.ReceiveHint($"{atckr.Nickname} killed you ({GG.NumKillsReq - atckrStats.Score})", 2);
-
-                    if (atckrStats.IsNtfTeam != plrStats.IsNtfTeam || FFA)
-                    {
-                        GG.AddScore(atckr);
-                        atckr.ReceiveHint($"You killed {plr.Nickname} ({GG.NumKillsReq - plrStats.Score})", 2);
-                    }
-
-                }
-            }
-            catch (Exception) { }
-            GG.RollSpawns(plr.Position);
-            MEC.Timing.CallDelayed(1, () =>
-            {
-                GG.SpawnPlayer(plr);
-            });
-        }*/
 
 
         [PluginEvent(ServerEventType.PlayerDropItem)]
@@ -215,9 +177,9 @@ namespace GunGame
         }
 
         [PluginEvent(ServerEventType.PlayerThrowItem)]
-        public bool ThrowItem(PlayerThrowItemEvent args) //Stops items from being throwed
+        public bool ThrowItem(PlayerThrowItemEvent args) //Stops items from being thrown
         {
-            return !GameInProgress || args.Player.IsTutorial;
+            return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
         [PluginEvent(ServerEventType.PlayerDropAmmo)]
@@ -233,7 +195,7 @@ namespace GunGame
             if (!GameInProgress || args.Player.IsTutorial)
                 return true;
 
-            return itemID == ItemType.Painkillers || itemID == ItemType.Medkit || itemID == ItemType.Adrenaline || itemID == ItemType.GrenadeFlash;//Allows only certain pickups
+            return itemID == ItemType.SCP330 || itemID == ItemType.Painkillers || itemID == ItemType.Medkit || itemID == ItemType.Adrenaline || itemID == ItemType.GrenadeFlash;//Allows only certain pickups
         }
 
         [PluginEvent(ServerEventType.PlayerJoined)]
@@ -243,9 +205,9 @@ namespace GunGame
                 return;
             var plr = args.Player;
             GG.AssignTeam(plr);
-            plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \n<color=blue>Race to the final weapon!</color>", 10, shouldClearPrevious: true);
-            if (plr.DoNotTrack)
-                plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+            plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \nRace to the final weapon!", 10, shouldClearPrevious: true);
+            //   if (plr.DoNotTrack)
+            //       plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
             MEC.Timing.CallDelayed(3, () =>
             {
                 GG.SpawnPlayer(plr);

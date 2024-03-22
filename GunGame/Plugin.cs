@@ -13,7 +13,7 @@ namespace GunGame
         public void OnPluginStart()
         {
 
-            Log.Info($"Plugin is loading...");
+            Log.Info($"Guns are gaming...");
 
             EventManager.RegisterEvents<Events>(this);
 
