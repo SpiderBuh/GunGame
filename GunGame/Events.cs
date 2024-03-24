@@ -41,7 +41,7 @@ namespace GunGame
         {
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
-            bool ffa = rnd.Next(0, 1) == 1;
+            bool ffa = plrCount < 6 || rnd.Next(0, 2) == 1;
             FacilityZone trgtZone = FacilityZone.LightContainment;
             switch (rnd.Next(1, 5))
             {
@@ -129,9 +129,9 @@ namespace GunGame
         public void PlayerDeath(PlayerDyingEvent args)
         {
             if (!GameInProgress || args.Player == null || args.Player.IsServer) return;
-            var atckr = args.Attacker ?? Server.Instance;
             var plr = args.Player;
-
+            var atckr = args.Attacker ?? plr;//Server.Instance;
+            KillFeed.KillType type = FFA ? KillFeed.KillType.FriendlyFire : 0;
             //bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
 
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
@@ -142,6 +142,7 @@ namespace GunGame
                 plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
+                    type |= KillFeed.KillType.FriendlyFire;
                     plr.ReceiveHint("Shrimply a krill issue", 3);
                     //RemoveScore(plr); //Removes a score if a player dies to natural means
                 }
@@ -153,6 +154,8 @@ namespace GunGame
 
                     if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
                     {
+                        type |= atckrStats.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
+
                         GG.AddScore(atckr);
                         //    atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.killsLeft})", 2);
@@ -160,6 +163,10 @@ namespace GunGame
                         //        GG.RemoveScore(plr);
                     }
                 }
+
+
+                KillList.Add(new KillInfo(atckr.Nickname, plr.Nickname, type));
+                GG.SendKills();
             }
             catch (Exception) { }
             //GG.RollSpawns(plr.Position);

@@ -42,6 +42,7 @@
     <Compile Include="Events.cs" />
     <Compile Include="GunGameEventCommand.cs" />
     <Compile Include="GunGameUtils.cs" />
+    <Compile Include="KillFeed.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="GunGameDataManager.cs" />

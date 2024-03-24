@@ -42,6 +42,20 @@ namespace GunGame
         public static Vector3 NTFSpawn; //Current NTF spawn
         public static Vector3 ChaosSpawn; //Current chaos spawn
         public static Vector3[] LoadingRoom;
+        public struct KillInfo
+        {
+            public string atckr;
+            public string vctm;
+            public KillFeed.KillType type;
+            public KillInfo(string attacker, string victim, KillFeed.KillType killType)
+            {
+                atckr = attacker;
+                vctm = victim; 
+                type = killType;
+            }
+        }
+        public static List<KillInfo> KillList = new List<KillInfo>();
+        public Action SendKills;
 
         /// <summary>
         /// The shuffled list of weapons for each GunGame round
@@ -114,7 +128,7 @@ namespace GunGame
         {
             new Gat(ItemType.GunCOM18), //Random
             //new Gat(ItemType.GunCOM15),
-            new Gat(ItemType.Lantern) //Bonk
+           // new Gat(ItemType.Lantern) //Bonk
             //new Gat(ItemType.Jailbird)
         };
 
@@ -172,6 +186,7 @@ namespace GunGame
             Tntf = 0;
             Tchaos = 0;
             credits = 0;
+            KillList = new List<KillInfo>();
         }
         public void Start()
         {
@@ -250,11 +265,11 @@ namespace GunGame
             }
         }
 
-        public class Gat
+        public struct Gat
         {
-            public ItemType ItemType { get; set; }
-            public uint Mod { get; set; } = 0;
-            public byte Ammo { get; set; } = 0;
+            public ItemType ItemType;
+            public uint Mod;
+            public byte Ammo;
 
             public Gat(ItemType itemType, uint modCode = 0, byte ammoCount = 0)
             {
@@ -389,6 +404,10 @@ namespace GunGame
                 Tntf++;
             else
                 Tchaos++;
+
+            var kf = plr.GameObject.AddComponent<KillFeed>();
+            kf = new KillFeed(plr);
+            SendKills += kf.UpdateFeed;
         }
 
         public void RemovePlayer(Player plr) //Removes player from list
@@ -423,7 +442,7 @@ namespace GunGame
             plr.AddItem(ItemType.ArmorCombat);
             plr.AddItem(ItemType.Painkillers);
             //plr.AddItem(ItemType.Radio);
-            plr.SendBroadcast($"Kills left: {plrStats.killsLeft}", 5);
+            //plr.SendBroadcast($"Kills left: {plrStats.killsLeft}", 5);
             plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5, false);
             foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
                 plr.SetAmmo(ammo, 420);
@@ -436,6 +455,7 @@ namespace GunGame
 
                 GiveGun(plr, 1.5f);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invigorated>(127, 5, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<SilentWalk>(8, 9999, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(100, 3, true);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 1, false);
@@ -460,7 +480,7 @@ namespace GunGame
             if (plrStats.killsLeft <= 1)
                 plrStats.flags |= GGPlayerFlags.finalLevel;
 
-            plr.RemoveItems(ItemType.Flashlight);
+            //plr.RemoveItems(ItemType.Flashlight);
             
             MEC.Timing.CallDelayed(delay, () =>
         {
@@ -486,8 +506,8 @@ namespace GunGame
             else
                 for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
                     plr.AddItem(currGun.ItemType);
-            if (!plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
-                plr.AddItem(ItemType.Flashlight);
+          /*  if (!plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
+                plr.AddItem(ItemType.Flashlight);*/
             MEC.Timing.CallDelayed(0.1f, () =>
             {
                 plr.CurrentItem = weapon;
@@ -523,7 +543,7 @@ namespace GunGame
             plr.EffectsManager.EnableEffect<Invigorated>(5, true);
             plrStats.inc(); //Adds 1 to score
             GiveGun(plr);
-            plr.SendBroadcast($"{plrStats.killsLeft}", 1);
+            //plr.SendBroadcast($"{plrStats.killsLeft}", 1);
         }
 
         public void RemoveScore(Player plr)
