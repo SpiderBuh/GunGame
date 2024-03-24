@@ -111,7 +111,7 @@ namespace GunGame
             new Gat(ItemType.ParticleDisruptor, 1, 69),
 
             new Gat(ItemType.GunCrossvec), //Random
-            new Gat(ItemType.GrenadeHE, 4),
+            //new Gat(ItemType.GrenadeHE, 4),
 
             new Gat(ItemType.GunAK), //Random
         //};
@@ -425,6 +425,7 @@ namespace GunGame
 
         public void SpawnPlayer(Player plr) //Spawns player
         {
+            if (!GameInProgress) return;
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
             {
                 plr.ReceiveHint("You are unable to spawn. Try rejoining", 10);
@@ -449,6 +450,8 @@ namespace GunGame
             plrStats.flags |= GGPlayerFlags.alive;
             MEC.Timing.CallDelayed(4, () =>
             {
+                if (!GameInProgress) return;
+
                 RollSpawns(deathPosition);
                 plrStats.flags |= GGPlayerFlags.onMap;
                 plr.Position = plrStats.IsNtfTeam ? NTFSpawn : ChaosSpawn;
@@ -582,7 +585,9 @@ namespace GunGame
             string team = "";
             if (!FFA)
                 team = "\n and " + (plrStats.IsNtfTeam ? "NTF" : "Chaos") + " helped too I guess";
-            //Server.SendBroadcast($"<b><color=yellow>{plr.Nickname} wins!</color></b>{team}", 15, shouldClearPrevious: true);
+            SendKills = null;
+            Server.ClearBroadcasts();
+            Server.SendBroadcast($"<b><color=yellow>{plr.Nickname} wins!</color></b>{team}", 15, shouldClearPrevious: true);
             var bText = $"<b><color=yellow>{plr.Nickname} wins!</color></b>{team}";
 
             plrStats.Score++;
@@ -620,7 +625,7 @@ namespace GunGame
             //    var totp = positionScore + teamBonus;
                 var plce = SortedPlayers.Count() - plrsLeft + 1;
 
-                loser.SendBroadcast(bText + $"\n\n(You came in {plce}{ordinal(plce)} place"/* and got {totp} points)"*/, 15);
+                loser.SendBroadcast(bText + $"\n\n(You came in {plce}{ordinal(plce)} place)"/* and got {totp} points)"*/, 15);
 
                 PlayerData plrDat = new PlayerData(loser);
                 ScoreData scrDat = new ScoreData(loser.UserId, "-1",-1/*roundID, totp*/, plce, loserEntry.Value.IsNtfTeam);
@@ -637,7 +642,7 @@ namespace GunGame
             //GunGameDataManager.AddScores(playersData, scores, round);
             //GunGameDataManager.UserScrub(dnts);
             Server.SendBroadcast(endStats.RoundScreen1(), 10);
-            Server.SendBroadcast(endStats.RoundScreen2() + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
+            Server.SendBroadcast(endStats.RoundScreen2(), 10);// + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
             AttachmentsUtils.ApplyAttachmentsCode(firearm, 0x1881, true);
             firearm.Status = new FirearmStatus(firearm.AmmoManagerModule.MaxAmmo, FirearmStatusFlags.MagazineInserted, 0x1881);
@@ -681,7 +686,7 @@ namespace GunGame
 
             public void processPlayer(PlayerData plr, ScoreData scr)
             {
-                string line = $"{scr.Position}{ordinal(scr.Position)}:\t(+{scr.Score}) {plr.Nickname}";
+                string line = $"{scr.Position}{ordinal(scr.Position)}:"/*\t(+{scr.Score})*/ +$"{plr.Nickname}";
                 if (scr.NTF && team != winningTeam.FFA)
                     NTF.Add(line);
                 else Chaos.Add(line);

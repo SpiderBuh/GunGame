@@ -38,13 +38,22 @@ namespace GunGame
 
         public void UpdateFeed()
         {
+            if (!Plugin.GameInProgress) return;
             int startIndex = Math.Max(0, KillList.Count - numLines);
             string sb = "";
 
             for (int i = startIndex; i < KillList.Count; i++)
             {
                 string tag = KillList[i].vctm == plrName || KillList[i].atckr == plrName ? "<b>" : "";
-                sb += ($"{tag}{$"<size=-10><align=left><pos=-8em>{KillList[i].atckr} killed {KillList[i].vctm}"}{(tag.Length > 0 ? "</b>" : "")}</align></pos></size>\n");
+
+                var flags = KillList[i].type;
+
+                string attacker = $"<color={(flags.HasFlag(KillType.FriendlyFire) ? "white" : flags.HasFlag(KillType.NtfKill) ? "blue" : "green")}>"+KillList[i].atckr + "</color>";
+                string victim = $"<color={(flags.HasFlag(KillType.FriendlyFire) ? "white" : flags.HasFlag(KillType.NtfKill) ? "green" : "blue")}>"+KillList[i].vctm + "</color>";
+
+                sb += $"<size=-14><align=left><pos=-8em>{tag}" +
+                    $"{attacker} killed {victim}" +
+                    $"{(tag.Length > 0 ? "</b>" : "")}</align></pos></size>\n";
             }
             Server.Broadcast.TargetClearElements(playerConnection);
             Server.Broadcast.TargetAddElement(playerConnection, sb, 15, Broadcast.BroadcastFlags.Normal);
