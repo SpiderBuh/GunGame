@@ -41,7 +41,7 @@ namespace GunGame.Commands
                     return false;
                 response += "\nplayer info found";
 
-                plrInfo.flags = (GGPlayerFlags)flags;
+                plrInfo.PlayerInfo.flags = (GGPlayerFlags)flags;
 
                 response += "\nFlags set successfully.";
 

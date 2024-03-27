@@ -1,6 +1,6 @@
 ﻿using CustomPlayerEffects;
 using Footprinting;
-using GunGame.HitRegModules;
+using GunGame.Components;
 using Interactables.Interobjects;
 using InventorySystem;
 using InventorySystem.Items;
@@ -22,7 +22,6 @@ using System;
 using System.Linq;
 using UnityEngine;
 using Utils;
-using static GunGame.GunGameEventCommand;
 using static GunGame.GunGameUtils;
 using static GunGame.Plugin;
 
@@ -62,6 +61,7 @@ namespace GunGame
 
             int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, 30);
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
+            GameInProgress = true;
 
             foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
             {
@@ -100,7 +100,6 @@ namespace GunGame
                 Grandpa.State = Scp244State.Active;
                 NetworkServer.Spawn(Grandpa.gameObject);
             }
-            GameInProgress = true;
             Round.IsLocked = true;
             DecontaminationController.Singleton.enabled = false;
             Round.Start();
@@ -139,7 +138,8 @@ namespace GunGame
             try
             {
                 plr.ClearInventory();
-                plrStats.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
+                plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
+                plrStats.PlayerInfo.totDeaths++;
                 if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     type |= KillFeed.KillType.FriendlyFire;
@@ -150,15 +150,15 @@ namespace GunGame
                 {
                     plr.AddItem(ItemType.Medkit);
                     //plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
-                    plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.killsLeft})", 2);
+                    plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.PlayerInfo.killsLeft})", 2);
 
-                    if (FFA || atckrStats.IsNtfTeam != plrStats.IsNtfTeam)
+                    if (FFA || atckrStats.PlayerInfo.IsNtfTeam != plrStats.PlayerInfo.IsNtfTeam)
                     {
-                        type |= atckrStats.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
-
+                        type |= atckrStats.PlayerInfo.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
+                        atckrStats.PlayerInfo.totKills++;
                         GG.AddScore(atckr);
                         //    atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
-                        atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.killsLeft})", 2);
+                        atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
                         //    if (downgrade)
                         //        GG.RemoveScore(plr);
                     }

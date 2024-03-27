@@ -50,7 +50,7 @@ namespace GunGame.Commands
                 else
                 {
                     response += "\nPlayer exists in list, resetting flags";
-                    plrInfo.flags &= GGPlayerFlags.NTF;
+                    plrInfo.PlayerInfo.flags &= GGPlayerFlags.NTF;
                 }
                 if (plr.Role == PlayerRoles.RoleTypeId.Spectator)
                     response += "\nPlayer not spawned, attempting spawn";

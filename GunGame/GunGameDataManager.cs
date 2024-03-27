@@ -42,9 +42,20 @@ namespace GunGame
         public ScoreData() { }
         public string UserID { get; set; } = string.Empty;
         public string RoundID { get; set; } = string.Empty;
+        public int kills { get; set; } = 0;
+        public int deaths { get; set; } = 0;
         public int Score { get; set; } = -1;
         public int Position { get; set; } = -1;
         public bool NTF { get; set; } = false;
+
+        public ScoreData(string userID, int kills, int deaths, int position, bool ntf)
+        {
+            UserID = userID;
+            Position = position;
+            NTF = ntf;
+            this.kills = kills;
+            this.deaths = deaths;
+        }
 
         public ScoreData(string userID, string roundID, int score, int position, bool ntf)
         {

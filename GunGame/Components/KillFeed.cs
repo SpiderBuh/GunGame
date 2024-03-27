@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.GunGameUtils;
 
-namespace GunGame
+namespace GunGame.Components
 {
     public class KillFeed : MonoBehaviour
     {
