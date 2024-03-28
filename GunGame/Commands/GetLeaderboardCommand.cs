@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace GunGame.Commands
-{
+{/*
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     //[CommandHandler(typeof(ClientCommandHandler))]
     public class GetLeaderboardCommand : ICommand//, IUsageProvider
@@ -48,5 +48,5 @@ namespace GunGame.Commands
 
 
 
-
+    */
 }

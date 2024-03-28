@@ -9,7 +9,7 @@ namespace GunGame
         public static bool GameInProgress = false;
         public static GunGameUtils GG;
 
-        [PluginEntryPoint("Gun Game", "1.0.0", "Gamemode Gun Game recreated in SCP SL", "SpiderBuh")]
+        [PluginEntryPoint("Gun Game", "1.1.0", "Gamemode Gun Game recreated in SCP SL", "SpiderBuh")]
         public void OnPluginStart()
         {
 

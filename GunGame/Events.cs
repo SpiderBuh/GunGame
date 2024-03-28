@@ -1,4 +1,5 @@
 ﻿using CustomPlayerEffects;
+using DeathAnimations;
 using Footprinting;
 using GunGame.Components;
 using Interactables.Interobjects;
@@ -33,108 +34,48 @@ namespace GunGame
         public void OnRoundRestart()
         {
             GameInProgress = false;
+            GG = null;
         }
+
+        public static FacilityZone trgtZone = FacilityZone.Surface;
 
         [PluginEvent(ServerEventType.RoundStart)]
         public void OnRoundStart(RoundStartEvent args)
         {
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
-            bool ffa = plrCount < 6 || rnd.Next(0, 2) == 1;
-            FacilityZone trgtZone = FacilityZone.LightContainment;
-            switch (rnd.Next(1, 5))
-            {
-                case 2:
-                    trgtZone = FacilityZone.HeavyContainment;
-                    break;
-                case 3:
-                    trgtZone = FacilityZone.Entrance;
-                    break;
-                case 4:
-                    trgtZone = FacilityZone.Surface;
-                    break;
-                case 5:
-                    if (plrCount > 20)
-                        trgtZone = FacilityZone.Other;
-                    break;
-            }
+            bool ffa = plrCount < 8 || rnd.Next(0, 2) == 1;
+
+            trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1,4)-1) % 4+1); //Random zone excluding the previous one
 
             int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, 30);
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
-            GameInProgress = true;
 
-            foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
-            {
-                if (plr.IsServer)
-                    continue;
-                GG.AssignTeam(plr);
-                GG.SpawnPlayer(plr);
-
-                //                if (plr.DoNotTrack)
-                //                    plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
-            }
-            Server.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \nRace to the final weapon!", 10, shouldClearPrevious: true);
-
-            if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
-            {
-                //    ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
-                //    ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());
-
-                Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
-                Grandma.NetworkInfo = new PickupSyncInfo
-                {
-                    ItemId = gma.ItemTypeId,
-                    WeightKg = gma.Weight,
-                    Serial = ItemSerialGenerator.GenerateNext()
-                };
-                Grandma.State = Scp244State.Active;
-                NetworkServer.Spawn(Grandma.gameObject);
-
-                Scp244DeployablePickup Grandpa = UnityEngine.Object.Instantiate(gpa.PickupDropModel, new Vector3(11.3f, 997.47f, -35.3f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
-                Grandpa.NetworkInfo = new PickupSyncInfo
-                {
-                    ItemId = gpa.ItemTypeId,
-                    WeightKg = gpa.Weight,
-                    Serial = ItemSerialGenerator.GenerateNext()
-                };
-                Grandpa.State = Scp244State.Active;
-                NetworkServer.Spawn(Grandpa.gameObject);
-            }
-            Round.IsLocked = true;
-            DecontaminationController.Singleton.enabled = false;
-            Round.Start();
-            Server.FriendlyFire = FFA;
-            GameStarted = true;
+            GG.Start();
         }
 
-        /*   [PluginEvent(ServerEventType.PlayerToggleFlashlight)]
-           public void KnifeStab(PlayerToggleFlashlightEvent args)
-           {
-               if (GameInProgress && (args.Item.ItemTypeId == ItemType.Flashlight || args.Item.ItemTypeId == ItemType.Lantern) || args.Player.IsTutorial)
-               {
-
-                   bool anyDamaged = Bonk.Bonketh(args.Player);
-                   if (anyDamaged)
-                   {
-                       Hitmarker.SendHitmarkerDirectly(args.Player.ReferenceHub, 1f);
-                   }
-                   //var stab = new KnifeHitreg(args.Item/*args.Player.CurrentItem/, args.Player.ReferenceHub);
-                   //if (stab.ClientCalculateHit(out var shot))
-                   //    stab.ServerProcessShot(shot);
-               }
-           }*/
-
-        [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.Highest)]
-        public void PlayerDeath(PlayerDyingEvent args)
+        [PluginEvent(ServerEventType.PlayerDamage), PluginPriority(LoadPriority.Highest)]
+        public bool PlayerDamage(PlayerDamageEvent args)
         {
-            if (!GameInProgress || args.Player == null || args.Player.IsServer) return;
+            if (!GameInProgress || args.Target == null || args.Target.IsServer) return true;
+            if ((args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id) return false;
+            return true;
+        }
+
+        [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.High)]
+        public bool PlayerDeath(PlayerDyingEvent args)
+        {
+            if (!GameInProgress || args.Player == null || args.Player.IsServer) return true;
             var plr = args.Player;
             var atckr = args.Attacker ?? plr;//Server.Instance;
             KillFeed.KillType type = FFA ? KillFeed.KillType.FriendlyFire : 0;
             //bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
 
+            if ((args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id) return false;
+
+
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
-                return;
+                return true;
             try
             {
                 plr.ClearInventory();
@@ -174,6 +115,7 @@ namespace GunGame
             {
                 GG.SpawnPlayer(plr);
             });
+            return true;
         }
 
 
@@ -255,12 +197,6 @@ namespace GunGame
         [PluginEvent(ServerEventType.PlayerHandcuff)]
         public bool PlayerHandcuff(PlayerHandcuffEvent args)
         {
-            //if (EventInProgress)
-            //{
-            //    args.Target.ReferenceHub.playerEffectsController.ChangeState("SeveredHands", 1);
-            //    ExplosionUtils.ServerExplode(args.Player.ReferenceHub);
-            //}
-
             return !GameInProgress || args.Player.IsTutorial;
         }
 

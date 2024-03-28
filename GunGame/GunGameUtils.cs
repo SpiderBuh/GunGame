@@ -6,6 +6,7 @@ using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
+using InventorySystem.Items.Jailbird;
 using InventorySystem.Items.Pickups;
 using InventorySystem.Items.Usables.Scp244;
 using LightContainmentZoneDecontamination;
@@ -18,6 +19,7 @@ using PluginAPI.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.Plugin;
@@ -33,22 +35,52 @@ namespace GunGame
         public static byte Tntf = 0; //Number of NTF
         public static byte Tchaos = 0; //Number of chaos
 
+
+        #region map
+        public static Dictionary<Vector2Int, HashSet<Vector3>> Spawns;
+        public static Vector3 NTFSpawn; //Current NTF spawn
+        public static Vector3 ChaosSpawn; //Current chaos spawn
+        public readonly List<Vector3> SurfaceSpawns = new List<Vector3> { new Vector3(0f, 1001f, 0f), new Vector3(8f, 991.65f, -43f), new Vector3(10.5f, 997.47f, -23.25f), new Vector3(63.5f, 995.69f, -34f), new Vector3(63f, 991.65f, -51f), new Vector3(114.5f, 995.45f, -43f), new Vector3(137f, 995.46f, -60f), new Vector3(38.5f, 1001f, -52f), new Vector3(0f, 1001f, -42f) }; //Extra surface spawns
+        
+        public static int gridSize => FFA || zone.Equals(FacilityZone.Surface) ? 4 : 5;
+        public HashSet<Vector2Int> ChaosTiles = new HashSet<Vector2Int>();
+        public HashSet<Vector2Int> NTFTiles = new HashSet<Vector2Int>();
+        public Action RefreshBlocklist = () => { };
+        
+        public static List<RoomIdentifier> BlacklistRooms;
+        public readonly List<string> BlacklistRoomNames = new List<string>() { "LczCheckpointA", "LczCheckpointB", /*"LczClassDSpawn",*/ "HczCheckpointToEntranceZone", "HczCheckpointToEntranceZone", "HczWarhead", "Hcz049", "Hcz106", "Hcz079", "Lcz173" };
+        
+        public static Vector3[] LoadingRoom;
+        public readonly Vector3[] LROffset = new Vector3[] { new Vector3(3, 15.28f, 7.8f), new Vector3(-3.5f, -4.28f, -12), new Vector3(6f, 3.83f, -3.5f), new Vector3(-13, 14.46f, -33f), new Vector3(0, 0.96f, -1.5f), };
+        public readonly RoomName[] LRNames = new RoomName[] { RoomName.Lcz173, RoomName.Hcz079, RoomName.EzGateB, RoomName.Outside, RoomName.EzEvacShelter };
+        
+        
+        public static Vector2Int StampGrid(Vector3 spawn, int shift) => new Vector2Int((int)spawn.x >> shift, (int)spawn.z >> shift); // Divide by 2^shift
+        public static FacilityZone charZone(char z)
+        {
+            switch (z)
+            {
+                case 'L':
+                    return FacilityZone.LightContainment;
+                case 'H':
+                    return FacilityZone.HeavyContainment;
+                case 'E':
+                    return FacilityZone.Entrance;
+                case 'S':
+                    return FacilityZone.Surface;
+                case 'O':
+                    return FacilityZone.Other;
+            }
+            return FacilityZone.LightContainment;
+        }
+        #endregion
+
+        #region players
         public static short[] InnerPosition;
         public static Dictionary<string, GGPlayer> AllPlayers; //UserID, PlrInfo
         public static Dictionary<string, GGPlayer> SortedPlayers => AllPlayers.OrderByDescending(pair => pair.Value.PlayerInfo.Score)
                                          .ThenBy(pair => pair.Value.PlayerInfo.InnerPos)
                                          .ToDictionary(pair => pair.Key, pair => pair.Value);
-        public static int gridSize => FFA || zone.Equals(FacilityZone.Surface) ? 3 : 5;
-        public static List<RoomIdentifier> BlacklistRooms;
-        //public static Dictionary<Vector3, Vector2Int> Spawns;
-        public static Dictionary<Vector2Int, HashSet<Vector3>> Spawns;
-        public static Vector3 NTFSpawn; //Current NTF spawn
-        public static Vector3 ChaosSpawn; //Current chaos spawn
-        public static Vector3[] LoadingRoom;
-        public HashSet<Vector2Int> ChaosTiles = new HashSet<Vector2Int>();
-        public HashSet<Vector2Int> NTFTiles = new HashSet<Vector2Int>();
-        public Action RefreshBlocklist = () => { };
-        
         public struct KillInfo
         {
             public string atckr;
@@ -63,6 +95,70 @@ namespace GunGame
         }
         public static List<KillInfo> KillList = new List<KillInfo>();
         public Action SendKills = () => { };
+
+        [Flags]
+        public enum GGPlayerFlags : byte
+        {
+            Chaos = 0,
+            NTF = 1,
+            alive = 2,
+            onMap = 4,
+            spawned = alive | onMap,
+            preFL = 8,
+            finalLevel = 16,
+            validFL = finalLevel | preFL | spawned,
+        }
+        public readonly RoleTypeId[,] Roles = new RoleTypeId[,] { { RoleTypeId.ChaosRepressor, RoleTypeId.NtfCaptain }, { RoleTypeId.ChaosMarauder, RoleTypeId.NtfSergeant }, { RoleTypeId.ChaosConscript, RoleTypeId.NtfPrivate }, { RoleTypeId.ClassD, RoleTypeId.Scientist } }; //Player visual levels
+        public class PlrInfo
+        {
+            public GGPlayerFlags flags;
+            public byte Score { get; set; }
+            public short InnerPos { get; set; }
+            public bool IsNtfTeam => flags.HasFlag(GGPlayerFlags.NTF);
+            public int killsLeft => GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
+            public int totKills = 0;
+            public int totDeaths = 0;
+            public void SetTeam(bool NTF) => flags = flags & ~GGPlayerFlags.NTF | (NTF ? GGPlayerFlags.NTF : 0);
+            public void inc() => InnerPos = ++InnerPosition[++Score];
+
+            public PlrInfo(bool isNtfTeam, byte score = 0)
+            {
+                SetTeam(isNtfTeam);
+                Score = score;
+                InnerPos = ++InnerPosition[score];
+            }
+        }
+        public Dictionary<string, int> Positions()
+        {
+            var list = new Dictionary<string, int>();
+            foreach (var item in SortedPlayers)
+                if (Player.TryGet(item.Key, out Player plr))
+                    list.Add(plr.Nickname, item.Value.PlayerInfo.Score);
+
+            return list;
+        }
+
+        public static Func<int, string> ordinal = i => (i >= 11 && i <= 13) ? "th"
+                                : (i % 10 == 1) ? "st"
+                                : (i % 10 == 2) ? "nd"
+                                : (i % 10 == 3) ? "rd"
+                                : "th";
+        #endregion
+
+        #region weapons
+        public struct Gat
+        {
+            public ItemType ItemType;
+            public uint Mod;
+            public byte Ammo;
+
+            public Gat(ItemType itemType, uint modCode = 0, byte ammoCount = 0)
+            {
+                ItemType = itemType;
+                Mod = modCode;
+                Ammo = ammoCount;
+            }
+        }
 
         /// <summary>
         /// The shuffled list of weapons for each GunGame round
@@ -147,38 +243,11 @@ namespace GunGame
         /// The total number of guns this round, INCLUDING the final levels
         /// </summary>
         public byte NumKillsReq => (byte)AllWeapons.Count;
-        public int currRound = -1;// RoundsPlayed + 1;
+        //public int currRound = -1;// RoundsPlayed + 1;
 
-        public readonly RoleTypeId[,] Roles = new RoleTypeId[,] { { RoleTypeId.ChaosRepressor, RoleTypeId.NtfCaptain }, { RoleTypeId.ChaosMarauder, RoleTypeId.NtfSergeant }, { RoleTypeId.ChaosConscript, RoleTypeId.NtfPrivate }, { RoleTypeId.ClassD, RoleTypeId.Scientist } }; //Player visual levels
-        public readonly List<string> BlacklistRoomNames = new List<string>() { "LczCheckpointA", "LczCheckpointB", /*"LczClassDSpawn",*/ "HczCheckpointToEntranceZone", "HczCheckpointToEntranceZone", "HczWarhead", "Hcz049", "Hcz106", "Hcz079", "Lcz173" };
-        public readonly Vector3[] LROffset = new Vector3[] { new Vector3(3, 15.28f, 7.8f), new Vector3(-3.5f, -4.28f, -12), new Vector3(6f, 3.83f, -3.5f), new Vector3(-13, 14.46f, -33f), new Vector3(0, 0.96f, -1.5f), };
-        public readonly RoomName[] LRNames = new RoomName[] { RoomName.Lcz173, RoomName.Hcz079, RoomName.EzGateB, RoomName.Outside, RoomName.EzEvacShelter };
-        public readonly List<Vector3> SurfaceSpawns = new List<Vector3> { new Vector3(0f, 1001f, 0f), new Vector3(8f, 991.65f, -43f), new Vector3(10.5f, 997.47f, -23.25f), new Vector3(63.5f, 995.69f, -34f), new Vector3(63f, 991.65f, -51f), new Vector3(114.5f, 995.45f, -43f), new Vector3(137f, 995.46f, -60f), new Vector3(38.5f, 1001f, -52f), new Vector3(0f, 1001f, -42f) }; //Extra surface spawns
         public readonly List<ItemType> AllAmmo = new List<ItemType>() { ItemType.Ammo12gauge, ItemType.Ammo44cal, ItemType.Ammo556x45, ItemType.Ammo762x39, ItemType.Ammo9x19 }; //All ammo types for easy adding
+        #endregion
 
-        public static Func<int, string> ordinal = i => (i >= 11 && i <= 13) ? "th"
-                                : (i % 10 == 1) ? "st"
-                                : (i % 10 == 2) ? "nd"
-                                : (i % 10 == 3) ? "rd"
-                                : "th";
-        public static FacilityZone charZone(char z)
-        {
-            switch (z)
-            {
-                case 'L':
-                    return FacilityZone.LightContainment;
-                case 'H':
-                    return FacilityZone.HeavyContainment;
-                case 'E':
-                    return FacilityZone.Entrance;
-                case 'S':
-                    return FacilityZone.Surface;
-                case 'O':
-                    return FacilityZone.Other;
-            }
-            return FacilityZone.LightContainment;
-        }
-        public static Vector2Int StampGrid(Vector3 spawn, int shift = 5) => new Vector2Int((int)spawn.x >> shift, (int)spawn.z >> shift); // Divide by 2^shift
 
         public GunGameUtils(bool ffa = false, FacilityZone targetZone = FacilityZone.LightContainment, int numKills = 20)
         {
@@ -195,8 +264,11 @@ namespace GunGame
             credits = 0;
             KillList = new List<KillInfo>();
         }
+
         public void Start()
         {
+            GameInProgress = true;
+            GameStarted = true;
             foreach (Player plr in Player.GetPlayers().OrderBy(w => Guid.NewGuid()).ToList()) //Sets player teams
             {
                 if (plr.IsServer)
@@ -234,83 +306,12 @@ namespace GunGame
                 Grandpa.State = Scp244State.Active;
                 NetworkServer.Spawn(Grandpa.gameObject);
             }
-            GameInProgress = true;
             Round.IsLocked = true;
             DecontaminationController.Singleton.enabled = false;
             if (!Round.IsRoundStarted)
                 Round.Start();
             Server.FriendlyFire = FFA;
-            GameStarted = true;
         }
-
-        [Flags]
-        public enum GGPlayerFlags : byte
-        {
-            Chaos = 0,
-            NTF = 1,
-            alive = 2,
-            onMap = 4,
-            spawned = alive | onMap,
-            preFL = 8,
-            finalLevel = 16,
-            validFL = finalLevel | preFL | spawned,
-        }
-        public class PlrInfo
-        {
-            public GGPlayerFlags flags;
-            public byte Score { get; set; }
-            public short InnerPos { get; set; }
-            public bool IsNtfTeam => flags.HasFlag(GGPlayerFlags.NTF);
-            public int killsLeft => GG.NumKillsReq - Score;// - (flags.HasFlag(GGPlayerFlags.validFL) ? 1 : 0);
-            public int totKills = 0;
-            public int totDeaths = 0;
-            public void SetTeam(bool NTF) => flags = flags & ~GGPlayerFlags.NTF | (NTF ? GGPlayerFlags.NTF : 0);
-            public void inc() => InnerPos = ++InnerPosition[++Score];
-
-            public PlrInfo(bool isNtfTeam, byte score = 0)
-            {
-                SetTeam(isNtfTeam);
-                Score = score;
-                InnerPos = ++InnerPosition[score];
-            }
-        }
-
-        public struct Gat
-        {
-            public ItemType ItemType;
-            public uint Mod;
-            public byte Ammo;
-
-            public Gat(ItemType itemType, uint modCode = 0, byte ammoCount = 0)
-            {
-                ItemType = itemType;
-                Mod = modCode;
-                Ammo = ammoCount;
-            }
-        }
-
-        public Dictionary<string, int> Positions()
-        {
-            var list = new Dictionary<string, int>();
-            foreach (var item in SortedPlayers)
-                if (Player.TryGet(item.Key, out Player plr))
-                    list.Add(plr.Nickname, item.Value.PlayerInfo.Score);
-
-            return list;
-        }
-
-        /*public void SetNumWeapons(byte num = 20)
-        {
-            num -= 2; //Excludes the final levels in shuffle target
-
-            byte T1 = (byte)Math.Round((double)Tier1.Count / NumGuns * num);
-            byte T2 = (byte)Math.Round((double)Tier2.Count / NumGuns * num);
-            byte T3 = (byte)Math.Round((double)Tier3.Count / NumGuns * num);
-            byte T4 = (byte)(num - T1 - T2 - T3);
-
-            AllWeapons = ProcessTier(Tier1, T1).Concat(ProcessTier(Tier2, T2)).Concat(ProcessTier(Tier3, T3)).Concat(ProcessTier(Tier4, T4)).Concat(FinalTier).ToList();
-        }*/
-
         ///<summary>Takes in a list and returns a list of the target length comprising of the input's values</summary>
         public List<Gat> ProcessTier(List<Gat> tier, byte target)
         {
@@ -327,6 +328,43 @@ namespace GunGame
             }
             return outTier;
         }
+
+        #region spawning
+        public void AssignTeam(Player plr) //Assigns player to team
+        {
+            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial)
+                return;
+            bool teams = (Tntf < Tchaos) && !FFA;
+            if (!AllPlayers.TryGetValue(plr.UserId, out GGPlayer plrInfo))
+            {
+                var plrComp = plr.GameObject.AddComponent<GGPlayer>();
+                plrComp = new GGPlayer(plr, new PlrInfo(teams));
+                AllPlayers.Add(plr.UserId, plrComp); //Adds player to list, uses bool operations to determine teams
+                RefreshBlocklist += plrComp.BlockSpawn;
+            }
+            else plrInfo.PlayerInfo.SetTeam(teams);
+            if (teams)
+                Tntf++;
+            else
+                Tchaos++;
+
+            var kf = plr.GameObject.AddComponent<KillFeed>();
+            kf = new KillFeed(plr);
+            SendKills += kf.UpdateFeed;
+        }
+        public void RemovePlayer(Player plr) //Removes player from list
+        {
+            if (AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+            {
+                plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
+                if (plrStats.PlayerInfo.IsNtfTeam)
+                    Tntf--;
+                else
+                    Tchaos--;
+                //AllPlayers.Remove(plr.UserId);
+            }
+        }
+
 
         ///<summary>Find's vector's 2d grid position</summary>
         public void LoadSpawns(bool forceAll = false)
@@ -347,7 +385,7 @@ namespace GunGame
             Spawns = new Dictionary<Vector2Int, HashSet<Vector3>>();
             if (zone == FacilityZone.Surface)
                 foreach (Vector3 spot in SurfaceSpawns)
-                    if (Spawns.ContainsKey(StampGrid(spot)))
+                    if (Spawns.ContainsKey(StampGrid(spot, gridSize)))
                         Spawns[StampGrid(spot, gridSize)].Add(spot);
                     else
                         Spawns.Add(StampGrid(spot, gridSize), new HashSet<Vector3>() { spot });
@@ -375,46 +413,8 @@ namespace GunGame
             }
             RollSpawns(true);
         }
-        //public void LoadSpawns(bool forceAll = false)
-        //{
-        //    if (!GameStarted || forceAll)
-        //    {
-        //        LoadingRoom = new Vector3[LRNames.Length];
-        //        for (int z = 0; z < LRNames.Length; z++)
-        //            if (RoomIdUtils.TryFindRoom(LRNames[z], FacilityZone.None, RoomShape.Undefined, out var foundRoom))
-        //                LoadingRoom[z] = foundRoom.transform.position + foundRoom.transform.rotation * LROffset[z];
-        //            else LoadingRoom[z] = new Vector3(-15.5f, 1014.5f, -31.5f);
 
-        //        BlacklistRooms = new List<RoomIdentifier>();
-        //        foreach (string room in BlacklistRoomNames) //Gets blacklisted room objects for current game
-        //            BlacklistRooms.AddRange(RoomIdentifier.AllRoomIdentifiers.Where(r => r.Name.ToString().Equals(room)));
-        //    }
-
-        //    Spawns = new Dictionary<Vector3, Vector2Int>();
-        //    if (zone == FacilityZone.Surface)
-        //        foreach (Vector3 spot in SurfaceSpawns)
-        //            Spawns.Add(spot, StampGrid(spot));
-
-        //    bool dual = zone == FacilityZone.Other;
-        //    FacilityZone tempZone = !dual ? zone : FacilityZone.HeavyContainment;
-        //    FacilityZone dualtempZone = !dual ? zone : FacilityZone.Entrance;
-        //    foreach (var door in DoorVariant.AllDoors) //Adds every door in specified zone to spawns list
-        //    {
-        //        if (!(door is ElevatorDoor || door is CheckpointDoor) && !door.Rooms.Any(x => BlacklistRooms.Contains(x)) && door.Rooms.Any(z => z.Zone == tempZone || z.Zone == dualtempZone))
-        //        {
-        //            Vector3 doorpos = door.gameObject.transform.position + new Vector3(0, 1, 0);
-        //            Spawns.Add(doorpos, StampGrid(doorpos));
-        //            door.NetworkTargetState = true;
-        //        }
-        //        else
-        //        {
-        //            bool lockState = (dual || zone == FacilityZone.LightContainment) && door is CheckpointDoor;
-        //            door.ServerChangeLock(DoorLockReason.Warhead, lockState);
-        //            door.NetworkTargetState = lockState;
-        //        }
-        //    }
-        //    RollSpawns();
-        //}
+        
         public bool RollSpawns(Vector3 deathPos) // Current system should be good for Teams, but meh FFA
         {
             if (FFA || Vector2Int.Distance(StampGrid(ChaosSpawn - deathPos, gridSize + 1), Vector2Int.zero) < 1 || Vector2Int.Distance(StampGrid(NTFSpawn - deathPos, gridSize + 1), Vector2Int.zero) < 1)
@@ -432,15 +432,6 @@ namespace GunGame
         }
         public bool RollSpawns(bool skipCheck = false) // Current system should be good for Teams, but meh FFA
         {
-            /*BlockedSpawns = new HashSet<Vector2Int>();
-            if (!skipCheck)
-                foreach (Player plr in Player.GetPlayers())
-                    if (plr.IsAlive)
-                        BlockedSpawns.Add(StampGrid(plr.Position, gridSize));*/
-
-            /*foreach (var ele in Spawns)
-                if (!blocked.Contains(ele.Value))
-                    filteredSpawns.Add(ele.Key, ele.Value);*/
             RefreshBlocklist();
             Dictionary<Vector2Int, HashSet<Vector3>> noNTF = Spawns.Where(x => !ChaosTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
             Dictionary<Vector2Int, HashSet<Vector3>> noChaos = Spawns.Where(x => !NTFTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
@@ -453,61 +444,6 @@ namespace GunGame
             NTFSpawn = noChaos.ElementAt(rng.Next(noChaos.Count)).Value.ToList().RandomItem();
             Cassie.Message(".G2", false, false, false);
             return true;
-        }
-        //public void RollSpawns() // Current system should be good for Teams, but meh FFA
-        //{
-        //    HashSet<Vector2Int> blocked = new HashSet<Vector2Int>();
-        //    foreach (Player plr in Player.GetPlayers())
-        //        if (plr.IsAlive)
-        //            blocked.Add(StampGrid(plr.Position, gridSize));
-
-        //    Dictionary<Vector3, Vector2Int> filteredSpawns = new Dictionary<Vector3, Vector2Int>();
-        //    foreach (var ele in Spawns)
-        //        if (!blocked.Contains(ele.Value))
-        //            filteredSpawns.Add(ele.Key, ele.Value);
-
-        //    var CS = filteredSpawns.ElementAt(new System.Random().Next(filteredSpawns.Count));
-        //    credits = 0;
-        //    ChaosSpawn = CS.Key;
-        //    if (FFA)
-        //        return;
-        //    NTFSpawn = filteredSpawns.Where(c => c.Value != CS.Value).ToList().RandomItem().Key;
-        //    Cassie.Message(".G2", false, false, false);
-        //}
-
-        public void AssignTeam(Player plr) //Assigns player to team
-        {
-            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial)
-                return;
-            bool teams = (Tntf < Tchaos) && !FFA;
-            if (!AllPlayers.TryGetValue(plr.UserId, out GGPlayer plrInfo)) { 
-                var plrComp = plr.GameObject.AddComponent<GGPlayer>();
-                plrComp = new GGPlayer(plr, new PlrInfo(teams));
-                AllPlayers.Add(plr.UserId, plrComp); //Adds player to list, uses bool operations to determine teams
-                RefreshBlocklist += plrComp.BlockSpawn;
-            }
-            else plrInfo.PlayerInfo.SetTeam(teams);
-            if (teams)
-                Tntf++;
-            else
-                Tchaos++;
-
-            var kf = plr.GameObject.AddComponent<KillFeed>();
-            kf = new KillFeed(plr);
-            SendKills += kf.UpdateFeed;
-        }
-
-        public void RemovePlayer(Player plr) //Removes player from list
-        {
-            if (AllPlayers.TryGetValue(plr.UserId, out var plrStats))
-            {
-                plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
-                if (plrStats.PlayerInfo.IsNtfTeam)
-                    Tntf--;
-                else
-                    Tchaos--;
-                //AllPlayers.Remove(plr.UserId);
-            }
         }
 
         public void SpawnPlayer(Player plr) //Spawns player
@@ -530,7 +466,7 @@ namespace GunGame
             plr.AddItem(ItemType.ArmorCombat);
             plr.AddItem(ItemType.Painkillers);
             //plr.AddItem(ItemType.Radio);
-            //plr.SendBroadcast($"Kills left: {plrStats.killsLeft}", 5);
+            plr.ReceiveHint($"\n\nKills left: {plrStats.PlayerInfo.killsLeft}", 5);
             plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 5, false);
             foreach (ItemType ammo in AllAmmo) //Gives max ammo of all types
                 plr.SetAmmo(ammo, 420);
@@ -660,7 +596,7 @@ namespace GunGame
             if (plr.IsAlive)
                 GiveGun(plr);
         }
-
+        #endregion
         public void TriggerWin(Player plr) //Win sequence
         {
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.PlayerInfo.flags.HasFlag(GGPlayerFlags.validFL))

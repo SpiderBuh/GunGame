@@ -37,7 +37,7 @@ namespace GunGame.Components
             if (!Flags.HasFlag(GGPlayerFlags.spawned))
                 return;
 
-            if (isNTF)
+            if (isNTF || FFA)
                 GG.NTFTiles.Add(GetGridPos());
             else
                 GG.ChaosTiles.Add(GetGridPos());
