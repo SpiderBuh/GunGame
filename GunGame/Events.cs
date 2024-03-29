@@ -1,4 +1,5 @@
-﻿using CustomPlayerEffects;
+﻿using CommandSystem.Commands.RemoteAdmin.Cleanup;
+using CustomPlayerEffects;
 using DeathAnimations;
 using Footprinting;
 using GunGame.Components;
@@ -13,6 +14,7 @@ using MapGeneration;
 using Mirror;
 using Org.BouncyCastle.Crypto.Macs;
 using PlayerRoles;
+using PlayerRoles.Ragdolls;
 using PlayerStatsSystem;
 using PluginAPI.Core;
 using PluginAPI.Core.Attributes;
@@ -35,8 +37,9 @@ namespace GunGame
         {
             GameInProgress = false;
             GG = null;
+            bodies = 0;
         }
-
+        int bodies = 0;
         public static FacilityZone trgtZone = FacilityZone.Surface;
 
         [PluginEvent(ServerEventType.RoundStart)]
@@ -69,7 +72,6 @@ namespace GunGame
             var plr = args.Player;
             var atckr = args.Attacker ?? plr;//Server.Instance;
             KillFeed.KillType type = FFA ? KillFeed.KillType.FriendlyFire : 0;
-            //bool downgrade = args.DamageHandler is JailbirdDamageHandler jdh && (atckr.CurrentItem.ItemTypeId == ItemType.Flashlight || atckr.CurrentItem.ItemTypeId == ItemType.Lantern);
 
             if ((args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id) return false;
 
@@ -90,7 +92,6 @@ namespace GunGame
                 else
                 {
                     plr.AddItem(ItemType.Medkit);
-                    //plr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}{atckr.Nickname} {(downgrade ? "\"knifed\"" : "killed")} you ({atckrStats.killsLeft})", 2);
                     plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.PlayerInfo.killsLeft})", 2);
 
                     if (FFA || atckrStats.PlayerInfo.IsNtfTeam != plrStats.PlayerInfo.IsNtfTeam)
@@ -98,7 +99,6 @@ namespace GunGame
                         type |= atckrStats.PlayerInfo.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
                         atckrStats.PlayerInfo.totKills++;
                         GG.AddScore(atckr);
-                        //    atckr.ReceiveHint($"{(downgrade ? "<color=red>" : "")}You {(downgrade ? "\"knifed\"" : "killed")} {plr.Nickname} ({plrStats.killsLeft})", 2);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
                         //    if (downgrade)
                         //        GG.RemoveScore(plr);
@@ -114,6 +114,18 @@ namespace GunGame
             {
                 GG.SpawnPlayer(plr);
             });
+            bodies++;
+            if (bodies >= 75)
+            {
+                BasicRagdoll[] array = (from r in UnityEngine.Object.FindObjectsOfType<BasicRagdoll>()
+                                        orderby r.Info.CreationTime descending
+                                        select r).ToArray();
+                for (int i = 0; i < 25; i++)
+                {
+                    NetworkServer.Destroy(array[i].gameObject);
+                }
+                bodies -= 25;
+            }
             return true;
         }
 
