@@ -46,7 +46,7 @@ namespace GunGame
             var plrCount = Player.GetPlayers().Count();
             bool ffa = plrCount < 8 || rnd.Next(0, 2) == 1;
 
-            trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1,4)-1) % 4+1); //Random zone excluding the previous one
+            trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
 
             int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, 30);
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
@@ -110,7 +110,6 @@ namespace GunGame
                 GG.SendKills();
             }
             catch (Exception) { }
-            //GG.RollSpawns(plr.Position);
             MEC.Timing.CallDelayed(1, () =>
             {
                 GG.SpawnPlayer(plr);

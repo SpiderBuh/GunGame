@@ -7,6 +7,7 @@ using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
 using InventorySystem.Items.Jailbird;
+using InventorySystem.Items.MicroHID;
 using InventorySystem.Items.Pickups;
 using InventorySystem.Items.Usables.Scp244;
 using LightContainmentZoneDecontamination;
@@ -41,20 +42,20 @@ namespace GunGame
         public static Vector3 NTFSpawn; //Current NTF spawn
         public static Vector3 ChaosSpawn; //Current chaos spawn
         public readonly List<Vector3> SurfaceSpawns = new List<Vector3> { new Vector3(0f, 1001f, 0f), new Vector3(8f, 991.65f, -43f), new Vector3(10.5f, 997.47f, -23.25f), new Vector3(63.5f, 995.69f, -34f), new Vector3(63f, 991.65f, -51f), new Vector3(114.5f, 995.45f, -43f), new Vector3(137f, 995.46f, -60f), new Vector3(38.5f, 1001f, -52f), new Vector3(0f, 1001f, -42f) }; //Extra surface spawns
-        
+
         public static int gridSize => FFA || zone.Equals(FacilityZone.Surface) ? 4 : 5;
         public HashSet<Vector2Int> ChaosTiles = new HashSet<Vector2Int>();
         public HashSet<Vector2Int> NTFTiles = new HashSet<Vector2Int>();
         public Action RefreshBlocklist = () => { };
-        
+
         public static List<RoomIdentifier> BlacklistRooms;
         public readonly List<string> BlacklistRoomNames = new List<string>() { "LczCheckpointA", "LczCheckpointB", /*"LczClassDSpawn",*/ "HczCheckpointToEntranceZone", "HczCheckpointToEntranceZone", "HczWarhead", "Hcz049", "Hcz106", "Hcz079", "Lcz173" };
-        
+
         public static Vector3[] LoadingRoom;
         public readonly Vector3[] LROffset = new Vector3[] { new Vector3(3, 15.28f, 7.8f), new Vector3(-3.5f, -4.28f, -12), new Vector3(6f, 3.83f, -3.5f), new Vector3(-13, 14.46f, -33f), new Vector3(0, 0.96f, -1.5f), };
         public readonly RoomName[] LRNames = new RoomName[] { RoomName.Lcz173, RoomName.Hcz079, RoomName.EzGateB, RoomName.Outside, RoomName.EzEvacShelter };
-        
-        
+
+
         public static Vector2Int StampGrid(Vector3 spawn, int shift) => new Vector2Int((int)spawn.x >> shift, (int)spawn.z >> shift); // Divide by 2^shift
         public static FacilityZone charZone(char z)
         {
@@ -156,6 +157,10 @@ namespace GunGame
             {
                 ItemType = itemType;
                 Mod = modCode;
+                if (modCode == 0)
+                {
+                    Mod = AttachmentsUtils.GetRandomAttachmentsCode(ItemType);
+                }
                 Ammo = ammoCount;
             }
         }
@@ -165,74 +170,59 @@ namespace GunGame
         /// </summary>
         public static List<Gat> AllWeapons;
 
-        public readonly List<Gat> Tier1 = new List<Gat>() { //Hex for attachment code much more compact than binary
+        public readonly List<Gat> Tier1 = new List<Gat>() {
             new Gat(ItemType.Jailbird, 1),
 
             new Gat(ItemType.GunCom45, 1, 255), //What da dog doin?
 
             new Gat(ItemType.GunLogicer, 0x1881, 255), //Run n gun
             
-            new Gat(ItemType.GunShotgun, 0x452), //The Viper
+            new Gat(ItemType.GunShotgun, 0x245, 255),
 
             new Gat(ItemType.GunCrossvec, 0xA054), //Where's that D boy?
 
-            new Gat(ItemType.GunE11SR, 0x542504), //The Sleek
+            new Gat(ItemType.GunCrossvec, 0b1001000010010100, 255), //Brrrrrrrrrrrrrrrrrrrrrrr
 
-            //new Gat(ItemType.GunRevolver, 0x452), //The Head-popper
+            new Gat(ItemType.GunE11SR, 0x542504), //The Sleek
 
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
             new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
-        //};
-
-        //public readonly List<Gat> Tier2 = new List<Gat>() {
-           // new Gat(ItemType.SCP330), // pink candy
-           // new Gat(ItemType.MicroHID, 1),
-
-            new Gat(ItemType.GunCrossvec, 0x84A1), //Faster than reloading!
 
             new Gat(ItemType.GunE11SR, 0x521241), //Rambo style
 
             new Gat(ItemType.GunAK, 0x24301, 200), //Rambo 2 electric boogaloo
 
-            new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
+            //new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
 
-            //new Gat(ItemType.GunRevolver, 0x18A, 30), //It's high noon
+            new Gat(ItemType.GunRevolver, 0b1001001010, 255), //It's high noon
 
-            new Gat(ItemType.GunFSP9, 0x2922), //D-boy genocide time!
-        //};
-
-        //public readonly List<Gat> Tier3 = new List<Gat>() {
             new Gat(ItemType.GunA7, 1),
 
-            new Gat(ItemType.GunShotgun, 0x245), //Spray n pray
+            new Gat(ItemType.GunLogicer),
 
-            new Gat(ItemType.GunE11SR, 0x110A510), //Silent but deadly
+            new Gat(ItemType.GunShotgun),
 
-            new Gat(ItemType.GunFRMG0, 0x24841), //100 round mag go brrr
+            new Gat(ItemType.GunE11SR),
+
+            new Gat(ItemType.GunFRMG0),
 
             new Gat(ItemType.ParticleDisruptor, 1, 69),
 
-            new Gat(ItemType.GunCrossvec), //Random
+            new Gat(ItemType.GunCrossvec),
             //new Gat(ItemType.GrenadeHE, 4),
 
-            new Gat(ItemType.GunAK), //Random
-        //};
+            new Gat(ItemType.GunAK),
 
-        //public readonly List<Gat> Tier4 = new List<Gat>() {
             new Gat(ItemType.GunCom45, 1),
 
+            new Gat(ItemType.GunFSP9),
 
-            new Gat(ItemType.GunFSP9), //Random
-
-            new Gat(ItemType.GunRevolver), //Random
+            new Gat(ItemType.GunRevolver),
         };
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
-            new Gat(ItemType.GunCOM18), //Random
-            //new Gat(ItemType.GunCOM15),
-           // new Gat(ItemType.Lantern) //Bonk
-            //new Gat(ItemType.Jailbird)
+            new Gat(ItemType.GunCOM18, 0b10000100101),
         };
 
         /// <summary>
@@ -253,7 +243,7 @@ namespace GunGame
         {
             FFA = ffa;
             zone = targetZone;
-            AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 2)).Concat(FinalTier).ToList();
+            AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
 
             GameStarted = false;
             LoadSpawns(true);
@@ -283,8 +273,6 @@ namespace GunGame
 
             if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
             {
-                /*ExplosionUtils.ServerExplode(new Vector3(72f, 992f, -43f), new Footprint()); //Bodge to get rid of old grandma's if the round didn't restart
-                ExplosionUtils.ServerExplode(new Vector3(11.3f, 997.47f, -35.3f), new Footprint());*/
 
                 Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
                 Grandma.NetworkInfo = new PickupSyncInfo
@@ -322,7 +310,9 @@ namespace GunGame
                 System.Random rnd = new System.Random();
                 while (additionalCount > 0)
                 {
-                    outTier.Add(tier[rnd.Next(tier.Count)]);
+                    var weapon = tier[rnd.Next(tier.Count)];
+                    weapon.Mod = AttachmentsUtils.GetRandomAttachmentsCode(weapon.ItemType);
+                    outTier.Add(weapon);
                     additionalCount--;
                 }
             }
@@ -414,12 +404,12 @@ namespace GunGame
             RollSpawns(true);
         }
 
-        
+
         public bool RollSpawns(Vector3 deathPos) // Current system should be good for Teams, but meh FFA
         {
             if (FFA || Vector2Int.Distance(StampGrid(ChaosSpawn - deathPos, gridSize + 1), Vector2Int.zero) < 1 || Vector2Int.Distance(StampGrid(NTFSpawn - deathPos, gridSize + 1), Vector2Int.zero) < 1)
             {
-                return RollSpawns(); 
+                return RollSpawns();
             }
             else
             {
@@ -507,35 +497,21 @@ namespace GunGame
 
             if (plrStats.PlayerInfo.killsLeft <= 1)
                 plrStats.PlayerInfo.flags |= GGPlayerFlags.finalLevel;
-
-            //plr.RemoveItems(ItemType.Flashlight);
-
+            
             MEC.Timing.CallDelayed(delay, () =>
         {
             Gat currGun = AllWeapons.ElementAt(plrStats.PlayerInfo.Score);
             ItemBase weapon = plr.AddItem(currGun.ItemType);
             if (weapon is Firearm firearm)
             {
-                uint attachment_code = currGun.Mod == 0 ? AttachmentsUtils.GetRandomAttachmentsCode(firearm.ItemTypeId) : currGun.Mod; //Random attachments if no attachment code specified
+                //uint attachment_code = currGun.Mod == 0 ? AttachmentsUtils.GetRandomAttachmentsCode(firearm.ItemTypeId) : currGun.Mod; //Random attachments if no attachment code specified
+                uint attachment_code = AttachmentsUtils.ValidateAttachmentsCode(firearm, currGun.Mod);
                 AttachmentsUtils.ApplyAttachmentsCode(firearm, attachment_code, true);
                 byte ammo_count = currGun.Ammo == 0 ? firearm.AmmoManagerModule.MaxAmmo : currGun.Ammo;
                 firearm.Status = new FirearmStatus(ammo_count, FirearmStatusFlags.MagazineInserted | FirearmStatusFlags.Cocked | FirearmStatusFlags.Chambered, attachment_code);
-            }
-            /*else if (weapon is Scp330Bag bag)
-            {
-                List<CandyKindID> bagCandies = new List<CandyKindID>();
-                while (bagCandies.Count < 5)
-                    bagCandies.Add((CandyKindID)new System.Random().Next(1, 7));
-                bagCandies.Add(CandyKindID.Pink);
-                bagCandies.ShuffleList();
-                bag.Candies = bagCandies;
-                bag.ServerRefreshBag();
-            }*/
-            else
+            } else
                 for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
                     plr.AddItem(currGun.ItemType);
-            /*  if (!plrStats.flags.HasFlag(GGPlayerFlags.finalLevel))
-                  plr.AddItem(ItemType.Flashlight);*/
             MEC.Timing.CallDelayed(0.1f, () =>
             {
                 plr.CurrentItem = weapon;
