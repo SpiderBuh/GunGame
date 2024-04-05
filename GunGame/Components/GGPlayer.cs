@@ -1,5 +1,4 @@
-﻿using PlayerRoles;
-using PluginAPI.Core;
+﻿using PluginAPI.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,19 +27,13 @@ namespace GunGame.Components
 
         public Vector2Int GetGridPos()
         {
-            //var pos = StampGrid(transform.position, gridSize);
-            var pos = StampGrid(PlayerHub.PlayerCameraReference.position, gridSize);
-            Cassie.Message($"{Nickname}\t{pos}",true,false,true);
-            return pos;
+            return StampGrid(PlayerHub.PlayerCameraReference.position, gridSize);
         }
 
         public void BlockSpawn()
         {
             if (!PlayerInfo.flags.HasFlag(GGPlayerFlags.spawned))
-            {
-                Cassie.Message($"{Nickname} is not alive", true, false, true);
                 return;
-            }
 
             if (isNTF || FFA)
                 GG.NTFTiles.Add(GetGridPos());

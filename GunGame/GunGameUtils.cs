@@ -175,23 +175,23 @@ namespace GunGame
 
             new Gat(ItemType.GunCom45, 1, 255), //What da dog doin?
 
-            //new Gat(ItemType.GunLogicer, 0x1881, 255), //Run n gun
+            new Gat(ItemType.GunLogicer, 0x1881, 255), //Run n gun
             
             new Gat(ItemType.GunShotgun, 0x245, 255),
 
-            //new Gat(ItemType.GunCrossvec, 0xA054), //Where's that D boy?
+            new Gat(ItemType.GunCrossvec, 0xA054), //Where's that D boy?
 
-            //new Gat(ItemType.GunCrossvec, 0b1001000010010100, 255), //Brrrrrrrrrrrrrrrrrrrrrrr
+            new Gat(ItemType.GunCrossvec, 0b1001000010010100, 255), //Brrrrrrrrrrrrrrrrrrrrrrr
 
             new Gat(ItemType.GunE11SR, 0x542504), //The Sleek
 
             new Gat(ItemType.GunAK, 0x41422), //I hope you can aim!
 
-            //new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
+            new Gat(ItemType.GunFRMG0, 0x19102, 255), //Lawn Mower
 
             new Gat(ItemType.GunE11SR, 0x521241), //Rambo style
 
-            //new Gat(ItemType.GunAK, 0x24301, 200), //Rambo 2 electric boogaloo
+            new Gat(ItemType.GunAK, 0x24301, 200), //Rambo 2 electric boogaloo
 
             //new Gat(ItemType.GunCOM18, 0x44A), //Heavy armory moment
 
@@ -273,6 +273,7 @@ namespace GunGame
 
             if (zone == FacilityZone.Surface && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244a, out var gma) && InventoryItemLoader.AvailableItems.TryGetValue(ItemType.SCP244b, out var gpa)) //SCP244 obsticals on surface
             {
+
                 Scp244DeployablePickup Grandma = UnityEngine.Object.Instantiate(gma.PickupDropModel, new Vector3(72f, 992f, -43f), UnityEngine.Random.rotation) as Scp244DeployablePickup;
                 Grandma.NetworkInfo = new PickupSyncInfo
                 {
@@ -321,7 +322,7 @@ namespace GunGame
         #region spawning
         public void AssignTeam(Player plr) //Assigns player to team
         {
-            if (plr == null || !plr.IsReady || plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial)
+            if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial)
                 return;
             bool teams = (Tntf < Tchaos) && !FFA;
             if (!AllPlayers.TryGetValue(plr.UserId, out GGPlayer plrInfo))
@@ -341,16 +342,15 @@ namespace GunGame
             kf = new KillFeed(plr);
             SendKills += kf.UpdateFeed;
         }
-        public void RemovePlayer(string userId) //Removes player from list
+        public void RemovePlayer(string UId) //Removes player from list
         {
-            if (AllPlayers.TryGetValue(userId, out var plrStats))
+            if (AllPlayers.TryGetValue(UId, out var plrStats))
             {
                 plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 if (plrStats.PlayerInfo.IsNtfTeam)
                     Tntf--;
                 else
                     Tchaos--;
-                RefreshBlocklist -= plrStats.BlockSpawn;
                 plrStats = null;
                 //AllPlayers.Remove(plr.UserId);
             }
@@ -423,7 +423,7 @@ namespace GunGame
         }
         public bool RollSpawns(bool skipCheck = false) // Current system should be good for Teams, but meh FFA
         {
-            if(!skipCheck) RefreshBlocklist();
+            RefreshBlocklist();
             Dictionary<Vector2Int, HashSet<Vector3>> noNTF = Spawns.Where(x => !NTFTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
             Dictionary<Vector2Int, HashSet<Vector3>> noChaos = Spawns.Where(x => !ChaosTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
             if (!noNTF.Any() || (!FFA && !noChaos.Any())) return false;
@@ -478,7 +478,7 @@ namespace GunGame
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 1, true);
                 //plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 1, false);
-                //plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
             });
         }
 
@@ -619,7 +619,7 @@ namespace GunGame
                 if (loser != plr)
                 {
                     loser.SetRole(RoleTypeId.ClassD);
-                    loser.ReferenceHub.playerEffectsController.EnableEffect<CardiacArrest>(9999);
+                    loser.ReferenceHub.playerEffectsController.EnableEffect<SeveredHands>();
                     loser.Position = plr.Position;
                 }
                 //    else positionScore = 15;
