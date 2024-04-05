@@ -36,6 +36,7 @@
     <Compile Include="Commands\GetLeaderboardCommand.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
     <Compile Include="Components\GGPlayer.cs" />
+    <Compile Include="Components\TimedObject.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="GunGameEventCommand.cs" />
     <Compile Include="GunGameUtils.cs" />

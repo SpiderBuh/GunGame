@@ -1,4 +1,5 @@
-﻿using PluginAPI.Core;
+﻿using PlayerRoles;
+using PluginAPI.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +17,6 @@ namespace GunGame.Components
         public string Nickname;
         public string Id;
         public PlrInfo PlayerInfo;
-        public GGPlayerFlags Flags;
         public bool isNTF => PlayerInfo.IsNtfTeam;
         public GGPlayer(Player plr, PlrInfo info)
         {
@@ -24,18 +24,23 @@ namespace GunGame.Components
             Nickname = plr.Nickname;
             Id = plr.UserId;
             PlayerInfo = info;
-            Flags = info.IsNtfTeam ? GGPlayerFlags.NTF : GGPlayerFlags.Chaos;
         }
 
         public Vector2Int GetGridPos()
         {
-            return StampGrid(transform.parent.position, gridSize);
+            //var pos = StampGrid(transform.position, gridSize);
+            var pos = StampGrid(PlayerHub.PlayerCameraReference.position, gridSize);
+            Cassie.Message($"{Nickname}\t{pos}",true,false,true);
+            return pos;
         }
 
         public void BlockSpawn()
         {
-            if (!Flags.HasFlag(GGPlayerFlags.spawned))
+            if (!PlayerInfo.flags.HasFlag(GGPlayerFlags.spawned))
+            {
+                Cassie.Message($"{Nickname} is not alive", true, false, true);
                 return;
+            }
 
             if (isNTF || FFA)
                 GG.NTFTiles.Add(GetGridPos());

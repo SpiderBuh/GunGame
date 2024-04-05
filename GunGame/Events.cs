@@ -7,6 +7,7 @@ using Interactables.Interobjects;
 using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Pickups;
+using InventorySystem.Items.Usables;
 using InventorySystem.Items.Usables.Scp244;
 using InventorySystem.Items.Usables.Scp330;
 using LightContainmentZoneDecontamination;
@@ -47,9 +48,9 @@ namespace GunGame
         {
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
-            bool ffa = plrCount < 8 || rnd.Next(0, 2) == 1;
-
             trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
+
+            bool ffa = plrCount < 8 || rnd.Next(0, 2) == 1 && trgtZone != FacilityZone.Surface;
 
             int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, 30);
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
@@ -75,7 +76,6 @@ namespace GunGame
 
             if ((args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id) return false;
 
-
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return true;
             try
@@ -91,7 +91,9 @@ namespace GunGame
                 }
                 else
                 {
-                    plr.AddItem(ItemType.Medkit);
+                    //var med = plr.AddItem(ItemType.Medkit);
+                    //med.gameObject.AddComponent(typeof(TimedObject));
+
                     plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.PlayerInfo.killsLeft})", 2);
 
                     if (FFA || atckrStats.PlayerInfo.IsNtfTeam != plrStats.PlayerInfo.IsNtfTeam)
@@ -105,26 +107,35 @@ namespace GunGame
                     }
                 }
 
-
                 KillList.Add(new KillInfo(atckr.Nickname, plr.Nickname, type));
                 GG.SendKills();
+               if(InventoryItemLoader.TryGetItem<Medkit>(ItemType.Medkit, out var med))
+                {
+                    ItemPickupBase droppedMed = UnityEngine.Object.Instantiate(med.PickupDropModel, plr.Position, UnityEngine.Random.rotation);
+                    droppedMed.NetworkInfo = new PickupSyncInfo(med.ItemTypeId, med.Weight);
+                    TimedObject timer = droppedMed.gameObject.AddComponent(typeof(TimedObject)) as TimedObject;
+                    timer = new TimedObject(30, droppedMed.gameObject);
+                    NetworkServer.Spawn(droppedMed.gameObject);
+                }
             }
             catch (Exception) { }
             MEC.Timing.CallDelayed(1, () =>
             {
                 GG.SpawnPlayer(plr);
             });
+
+
             bodies++;
-            if (bodies >= 75)
+            if (bodies >= 30)
             {
                 BasicRagdoll[] array = (from r in UnityEngine.Object.FindObjectsOfType<BasicRagdoll>()
                                         orderby r.Info.CreationTime descending
                                         select r).ToArray();
-                for (int i = 0; i < 25; i++)
+                for (int i = 0; i < 15; i++)
                 {
                     NetworkServer.Destroy(array[i].gameObject);
                 }
-                bodies -= 25;
+                bodies -= 15;
             }
             return true;
         }
@@ -178,7 +189,7 @@ namespace GunGame
         public void PlayerLeft(PlayerLeftEvent args) //Removing player that left from list
         {
             if (GameInProgress)
-                GG.RemovePlayer(args.Player);
+                GG.RemovePlayer(args.Player.UserId);
         }
 
         [PluginEvent(ServerEventType.PlayerChangeRole)]
@@ -189,7 +200,7 @@ namespace GunGame
 
             var newR = args.NewRole;
             if (newR == RoleTypeId.Overwatch)
-                GG.RemovePlayer(args.Player);
+                GG.RemovePlayer(args.Player.UserId);
 
             if (newR == RoleTypeId.Spectator)
                 MEC.Timing.CallDelayed(0.1f, () =>
@@ -234,7 +245,6 @@ namespace GunGame
                 plr.AddItem(ItemType.Painkillers);
                 plr.AddItem(ItemType.Adrenaline);
             });
-
         }
 
         [PluginEvent(ServerEventType.Scp914UpgradeInventory)]
@@ -274,7 +284,7 @@ namespace GunGame
                     break;
 
                 case Scp914KnobSetting.VeryFine:
-                    plr.EffectsManager.EnableEffect<Scp207>(9999); break;
+                    plr.EffectsManager.EnableEffect<CustomPlayerEffects.Scp207>(9999); break;
             }
         }
 
