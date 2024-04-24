@@ -423,6 +423,8 @@ namespace GunGame
         }
         public bool RollSpawns(bool skipCheck = false) // Current system should be good for Teams, but meh FFA
         {
+            NTFTiles.Clear();
+            ChaosTiles.Clear();
             RefreshBlocklist();
             Dictionary<Vector2Int, HashSet<Vector3>> noNTF = Spawns.Where(x => !NTFTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
             Dictionary<Vector2Int, HashSet<Vector3>> noChaos = Spawns.Where(x => !ChaosTiles.Contains(x.Key)).ToDictionary(k => k.Key, v => v.Value);
@@ -477,15 +479,14 @@ namespace GunGame
                 plr.ReferenceHub.playerEffectsController.ChangeState<SilentWalk>(8, 9999, false);
                 plr.ReferenceHub.playerEffectsController.ChangeState<DamageReduction>(200, 1, true);
                 //plr.ReferenceHub.playerEffectsController.ChangeState<Invisible>(127, 2, false);
-                plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 1, false);
-                plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.5f, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Ensnared>(127, 0.5f, false);
+                plr.ReferenceHub.playerEffectsController.ChangeState<Blinded>(127, 0.1f, false);
             });
         }
 
         ///<summary>Gives player their next gun and equips it, and removes old gun</summary>
         public void GiveGun(Player plr, float delay = 0)
         {
-
             if (plr.IsServer || plr.IsOverwatchEnabled || plr.IsTutorial || !AllPlayers.TryGetValue(plr.UserId, out var plrStats) || !plrStats.PlayerInfo.flags.HasFlag(GGPlayerFlags.spawned))
                 return;
 
@@ -619,7 +620,7 @@ namespace GunGame
                 if (loser != plr)
                 {
                     loser.SetRole(RoleTypeId.ClassD);
-                    loser.ReferenceHub.playerEffectsController.EnableEffect<SeveredHands>();
+                    loser.ReferenceHub.playerEffectsController.EnableEffect<CardiacArrest>();
                     loser.Position = plr.Position;
                 }
                 //    else positionScore = 15;
@@ -652,12 +653,12 @@ namespace GunGame
             {
                 plr.CurrentItem = firearm;
             });
-            MEC.Timing.CallDelayed(30, () =>
+            MEC.Timing.CallDelayed(15, () =>
             {
                 Round.IsLocked = false;
                 Warhead.Detonate();
 
-                MEC.Timing.CallDelayed(10, () =>
+                MEC.Timing.CallDelayed(15, () =>
                 {
                     RoundSummary.singleton.ForceEnd();
                 });

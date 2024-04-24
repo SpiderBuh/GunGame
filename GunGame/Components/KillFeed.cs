@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.GunGameUtils;
+using static GunGame.Plugin;
 
 namespace GunGame.Components
 {
@@ -58,6 +59,11 @@ namespace GunGame.Components
             Server.Broadcast.TargetClearElements(playerConnection);
             Server.Broadcast.TargetAddElement(playerConnection, sb, 15, Broadcast.BroadcastFlags.Normal);
             //Server.Broadcast.TargetAddElement(playerConnection, "<align=left>amogass</b></align>", ushort.MaxValue, Broadcast.BroadcastFlags.Normal);
+        }
+
+        void OnDestroy()
+        {
+            GG.SendKills -= UpdateFeed;
         }
 
     }

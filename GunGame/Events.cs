@@ -48,7 +48,7 @@ namespace GunGame
         {
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
-            bool ffa = plrCount < 8 || rnd.Next(0, 2) == 1;
+            bool ffa = !(plrCount > 16) && (plrCount < 8 || rnd.Next(0, 2) == 1);
 
             trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
 

@@ -40,5 +40,9 @@ namespace GunGame.Components
             else
                 GG.ChaosTiles.Add(GetGridPos());
         }
+        void OnDestroy()
+        {
+            GG.RefreshBlocklist -= BlockSpawn;
+        }
     }
 }
