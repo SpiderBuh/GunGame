@@ -16,6 +16,8 @@ namespace GunGame.Commands
 
         public string Description => "Lists the current GunGame positions, if a game is active";
 
+        public bool SanitizeResponse => true;
+
         //public string[] Usage { get; } = { };
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)

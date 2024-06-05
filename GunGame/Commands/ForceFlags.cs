@@ -11,6 +11,7 @@ namespace GunGame.Commands
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     public class ForceFlags : ICommand, IUsageProvider
     {
+
         public string Command => "ForceFlag";
 
         public string[] Aliases => null;
@@ -18,6 +19,8 @@ namespace GunGame.Commands
         public string[] Usage { get; } = { "Target", "Flags int value" };
 
         public string Description => "Forces player flags to whatever is specified";
+
+        public bool SanitizeResponse => true;
 
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)

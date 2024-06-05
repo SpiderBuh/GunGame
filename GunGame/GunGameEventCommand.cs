@@ -27,6 +27,8 @@ namespace GunGame
 
         public string Description => "Starts the GunGame event. (Args optional, [X]=default)";
 
+        public bool SanitizeResponse => true;
+
         public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S/O)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
 
 
