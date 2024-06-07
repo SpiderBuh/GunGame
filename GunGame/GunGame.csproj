@@ -34,16 +34,19 @@
     <Compile Include="Commands\ForceFlags.cs" />
     <Compile Include="Commands\FixPlayerCommand.cs" />
     <Compile Include="Commands\GetLeaderboardCommand.cs" />
+    <Compile Include="Commands\InitializeFirearms.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
     <Compile Include="Components\GGPlayer.cs" />
     <Compile Include="Components\TimedObject.cs" />
+    <Compile Include="DataSaving\PlayerStats.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="GunGameEventCommand.cs" />
     <Compile Include="GunGameUtils.cs" />
     <Compile Include="Components\KillFeed.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="GunGameDataManager.cs" />
+    <Compile Include="DataSaving\GunGameDataManager.cs" />
+    <Compile Include="DataSaving\WeaponAttachments.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

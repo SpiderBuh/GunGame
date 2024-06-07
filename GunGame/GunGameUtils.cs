@@ -24,6 +24,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.Plugin;
+using static GunGame.DataSaving.PlayerStats;
 
 namespace GunGame
 {
