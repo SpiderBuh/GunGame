@@ -87,7 +87,7 @@ namespace GunGame.DataSaving
                 }
             }
             [XmlIgnore]
-            public float TempRanking => Slots.Average(x => x.AverageRanking()) - 25 * TimesChosen;
+            public float TempRanking => Math.Max(Slots.Average(x => x.AverageRanking()) - 25 * TimesChosen, 0.1f);
             [XmlIgnore]
             public uint TimesChosen { get; set; } = 0;
             public List<ggAttachmentSlot> Slots { get; set; } = new List<ggAttachmentSlot>();
@@ -263,7 +263,7 @@ namespace GunGame.DataSaving
             public AttachmentName AttachmentName { get; set; }
             public float Ranking { get; set; }
             [XmlIgnore]
-            public float TempRanking => Ranking - 25 * TimesChosen;
+            public float TempRanking => Math.Max(Ranking - 25 * TimesChosen, 0.1f);
             [XmlIgnore]
             public uint TimesChosen { get; set; } = 0;
             public void UpdateRanking(float kdPerCapita, float averageGameKD)
