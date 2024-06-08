@@ -13,7 +13,6 @@ using InventorySystem.Items.Usables.Scp330;
 using LightContainmentZoneDecontamination;
 using MapGeneration;
 using Mirror;
-using Org.BouncyCastle.Crypto.Macs;
 using PlayerRoles;
 using PlayerRoles.Ragdolls;
 using PlayerStatsSystem;
@@ -84,6 +83,7 @@ namespace GunGame
                 plr.ClearInventory();
                 plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 plrStats.PlayerInfo.totDeaths++;
+                AllWeapons[plrStats.PlayerInfo.Score].deaths++;
                 if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     type |= KillFeed.KillType.FriendlyFire;
@@ -99,6 +99,7 @@ namespace GunGame
                     {
                         type |= atckrStats.PlayerInfo.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
                         atckrStats.PlayerInfo.totKills++;
+                        AllWeapons[atckrStats.PlayerInfo.Score].kills++;
                         GG.AddScore(atckr);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
                         //    if (downgrade)
@@ -106,7 +107,7 @@ namespace GunGame
                     }
                 }
 
-
+                
                 KillList.Add(new KillInfo(atckr.Nickname, plr.Nickname, type));
                 GG.SendKills();
             }

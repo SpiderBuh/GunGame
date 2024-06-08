@@ -35,6 +35,7 @@
     <Compile Include="Commands\FixPlayerCommand.cs" />
     <Compile Include="Commands\GetLeaderboardCommand.cs" />
     <Compile Include="Commands\InitializeFirearms.cs" />
+    <Compile Include="Commands\TestReadFirearms.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
     <Compile Include="Components\GGPlayer.cs" />
     <Compile Include="Components\TimedObject.cs" />

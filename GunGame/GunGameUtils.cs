@@ -25,6 +25,8 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.Plugin;
 using static GunGame.DataSaving.PlayerStats;
+using GunGame.DataSaving;
+using static GunGame.DataSaving.WeaponAttachments;
 
 namespace GunGame
 {
@@ -148,11 +150,14 @@ namespace GunGame
         #endregion
 
         #region weapons
-        public struct Gat
+        public class Gat
         {
             public ItemType ItemType;
             public uint Mod;
             public byte Ammo;
+            public int kills;
+            public int deaths;
+            public int usedBy;
 
             public Gat(ItemType itemType, uint modCode = 0, byte ammoCount = 0)
             {
@@ -162,7 +167,10 @@ namespace GunGame
                 {
                     Mod = AttachmentsUtils.GetRandomAttachmentsCode(ItemType);
                 }
-                Ammo = ammoCount;
+                Ammo = itemType == ItemType.ParticleDisruptor ? byte.MaxValue : ammoCount;
+                kills = 0;
+                deaths = 0;
+                usedBy = 0;
             }
         }
 
@@ -171,7 +179,7 @@ namespace GunGame
         /// </summary>
         public static List<Gat> AllWeapons;
 
-        public readonly List<Gat> Tier1 = new List<Gat>() {
+        /*public readonly List<Gat> Tier1 = new List<Gat>() {
             new Gat(ItemType.Jailbird, 1),
 
             new Gat(ItemType.GunCom45, 1, 255), //What da dog doin?
@@ -220,7 +228,9 @@ namespace GunGame
             new Gat(ItemType.GunFSP9),
 
             new Gat(ItemType.GunRevolver),
-        };
+        };*/
+
+        public List<Gat> gats = new List<Gat>();
         public readonly List<Gat> FinalTier = new List<Gat>()
         {
             new Gat(ItemType.GunCOM18, 0b10000100101),
@@ -229,7 +239,7 @@ namespace GunGame
         /// <summary>
         /// The number of possible guns, EXCLUDING the final levels
         /// </summary>
-        public byte NumGuns => (byte)(Tier1.Count);// + Tier2.Count + Tier3.Count + Tier4.Count);
+        //public byte NumGuns => (byte)(Tier1.Count);// + Tier2.Count + Tier3.Count + Tier4.Count);
         /// <summary>
         /// The total number of guns this round, INCLUDING the final levels
         /// </summary>
@@ -244,7 +254,9 @@ namespace GunGame
         {
             FFA = ffa;
             zone = targetZone;
-            AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
+            WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(WeaponAttachments.FilePath);
+            //AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
+            AllWeapons = ProcessTier((byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
 
             GameStarted = false;
             LoadSpawns(true);
@@ -302,7 +314,14 @@ namespace GunGame
             Server.FriendlyFire = FFA;
         }
         ///<summary>Takes in a list and returns a list of the target length comprising of the input's values</summary>
-        public List<Gat> ProcessTier(List<Gat> tier, byte target)
+        public List<Gat> ProcessTier(byte target)
+        {
+            List<Gat> tier = new List<Gat>();
+            for (int i = 0; i < target; i++)
+                tier.Add(WeaponData.GetRandomGat());
+            return tier;
+        }
+        /*public List<Gat> ProcessTier(List<Gat> tier, byte target)
         {
             List<Gat> outTier = tier.OrderBy(w => Guid.NewGuid()).Take(target).ToList();
             var additionalCount = target - tier.Count;
@@ -318,7 +337,7 @@ namespace GunGame
                 }
             }
             return outTier;
-        }
+        }*/
 
         #region spawning
         public void AssignTeam(Player plr) //Assigns player to team
@@ -500,11 +519,12 @@ namespace GunGame
 
             if (plrStats.PlayerInfo.killsLeft <= 1)
                 plrStats.PlayerInfo.flags |= GGPlayerFlags.finalLevel;
-            
+
             MEC.Timing.CallDelayed(delay, () =>
         {
             Gat currGun = AllWeapons.ElementAt(plrStats.PlayerInfo.Score);
             ItemBase weapon = plr.AddItem(currGun.ItemType);
+            //plr.SendBroadcast(currGun.ItemType.ToString() + "\t" + currGun.Mod, 5);
             if (weapon is Firearm firearm)
             {
                 //uint attachment_code = currGun.Mod == 0 ? AttachmentsUtils.GetRandomAttachmentsCode(firearm.ItemTypeId) : currGun.Mod; //Random attachments if no attachment code specified
@@ -512,8 +532,9 @@ namespace GunGame
                 AttachmentsUtils.ApplyAttachmentsCode(firearm, attachment_code, true);
                 byte ammo_count = currGun.Ammo == 0 ? firearm.AmmoManagerModule.MaxAmmo : currGun.Ammo;
                 firearm.Status = new FirearmStatus(ammo_count, FirearmStatusFlags.MagazineInserted | FirearmStatusFlags.Cocked | FirearmStatusFlags.Chambered, attachment_code);
-            } else
-                for (var i = currGun.Mod; i > 0 && !plr.IsInventoryFull; i--)
+            }
+            else
+                for (var i = /*currGun.Mod*/2; i > 0 && !plr.IsInventoryFull; i--)
                     plr.AddItem(currGun.ItemType);
             MEC.Timing.CallDelayed(0.1f, () =>
             {
@@ -645,6 +666,8 @@ namespace GunGame
             }
             //GunGameDataManager.AddScores(playersData, scores, round);
             //GunGameDataManager.UserScrub(dnts);
+            WeaponData.UpdateRankings(AllWeapons, Convert.ToSingle(SortedPlayers.Values.Average(x => x.PlayerInfo.totKills / x.PlayerInfo.totDeaths)));
+            GunGameDataManager.SaveData(WeaponData, WeaponAttachments.FilePath);
             Server.SendBroadcast(endStats.RoundScreen1(), 10);
             Server.SendBroadcast(endStats.RoundScreen2(), 10);// + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;
