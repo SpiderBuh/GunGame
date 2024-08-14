@@ -1,12 +1,6 @@
-﻿using InventorySystem.Items.Coin;
-using Mirror;
+﻿using Mirror;
 using PluginAPI.Core;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 using static GunGame.GunGameUtils;
 using static GunGame.Plugin;
@@ -16,23 +10,21 @@ namespace GunGame.Components
     public class KillFeed : MonoBehaviour
     {
         private NetworkConnectionToClient playerConnection;
-        //private string plrId;
         private string plrName;
         public static int numLines = 5;
 
         [Flags]
-        public enum KillType : byte
+        public enum KillType : byte //Used for text formatting in the kill feed
         {
             ChaosKill = 0, //For Chaos attackers
             NtfKill = 1, //For NTF attackers
-            FriendlyFire = 0b10, //For FFA mainly, but could happen in teams
-            SpecialKill = 0b100, //Win kill, and maybe backstab if I add that eventually?
+            FriendlyFire = 0b10, //For FFA mainly, but could happen in teams if FF is allowed
+            SpecialKill = 0b100, //Win kill, and maybe backstab if I add that eventually? 
         }
 
         public KillFeed(Player plr)
         {
             playerConnection = plr.ReferenceHub.connectionToClient;
-            //plrId = plr.UserId;
             plrName = plr.Nickname;
         }
 
@@ -58,7 +50,6 @@ namespace GunGame.Components
             }
             Server.Broadcast.TargetClearElements(playerConnection);
             Server.Broadcast.TargetAddElement(playerConnection, sb, 15, Broadcast.BroadcastFlags.Normal);
-            //Server.Broadcast.TargetAddElement(playerConnection, "<align=left>amogass</b></align>", ushort.MaxValue, Broadcast.BroadcastFlags.Normal);
         }
 
         void OnDestroy()

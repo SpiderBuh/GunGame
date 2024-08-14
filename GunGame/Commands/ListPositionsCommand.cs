@@ -1,14 +1,13 @@
 ﻿using CommandSystem;
 using PluginAPI.Core;
 using System;
-using static GunGame.GunGameEventCommand;
 using static GunGame.Plugin;
 
 namespace GunGame.Commands
 {
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
     [CommandHandler(typeof(ClientCommandHandler))]
-    public class ListPositionsCommand : ICommand//, IUsageProvider
+    public class ListPositionsCommand : ICommand
     {
         public string Command => "ggPos";
 
@@ -17,8 +16,6 @@ namespace GunGame.Commands
         public string Description => "Lists the current GunGame positions, if a game is active";
 
         public bool SanitizeResponse => true;
-
-        //public string[] Usage { get; } = { };
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {

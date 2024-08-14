@@ -1,19 +1,9 @@
 ﻿using CommandSystem;
-using CommandSystem.Commands.RemoteAdmin;
-using InventorySystem;
-using InventorySystem.Items;
-using InventorySystem.Items.Firearms;
-using PluginAPI.Core;
-using RemoteAdmin;
+using GunGame.DataSaving;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using YamlDotNet.Core.Tokens;
-using static GunGame.GunGameEventCommand;
+using static GunGame.DataSaving.WeaponAttachments;
 using static GunGame.GunGameUtils;
 using static GunGame.Plugin;
-using static GunGame.DataSaving.WeaponAttachments;
-using GunGame.DataSaving;
 
 namespace GunGame.Commands
 {
@@ -38,7 +28,7 @@ namespace GunGame.Commands
             try
             {
                 response += "Attempting file read...\n";
-                var list = GunGameDataManager.LoadData<WeaponDataWrapper>(WeaponAttachments.FilePath);
+                var list = GunGameDataManager.LoadData<WeaponDataWrapper>(WeaponAttachments.FileName);
                 response += "Number of weapons in list: " + list.Weapons.Count + "\n";
                 response += "Attempting to get random firearm with attachments...\n";
                 var rnd = list.GetRandomGat(true, false);
@@ -67,28 +57,5 @@ namespace GunGame.Commands
                 return false;
             }
         }
-
-        /*public List<uint> iterateAttachments(List<int> slots, uint pointer = 1)
-        {
-            List<uint> otherAtts;
-            List<uint> result = new List<uint>();
-            if (slots.Any() && slots.Count > 1)
-                otherAtts = iterateAttachments(new List<int>(slots.Skip(1)), Convert.ToUInt32(pointer * Math.Pow(2, slots.FirstOrDefault())));
-            else
-            {
-                otherAtts = new List<uint>();
-                for (int i = 0; i < slots.FirstOrDefault(); i++)
-                    otherAtts.Add(0);
-            }
-
-            for (int i = 0; i < slots.FirstOrDefault(); i++)
-            {
-                uint val = Convert.ToUInt32(pointer * Math.Pow(2, i));
-                foreach (var code in otherAtts)
-                    result.Add(code + val);
-            }
-            return result;
-        }*/
-
     }
 }

@@ -19,8 +19,6 @@ namespace GunGame.Commands
 
         public string Description => "Runs through some checks to fix a player if they aren't spawning";
 
-        public bool SanitizeResponse => true;
-
         public bool FixOthers = true;
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)

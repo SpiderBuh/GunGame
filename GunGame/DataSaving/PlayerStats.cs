@@ -2,25 +2,56 @@
 using PluginAPI.Core;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
 using Utils.NonAllocLINQ;
 
 namespace GunGame.DataSaving
 {
-    public class PlayerStats
+    public class PlayerStats : ConfigObject
     {
-        public const string FilePath = "GunGamePlayerData.xml";
+        public override string FileName => "GunGamePlayerData.xml";
+        public override DataWrapper Wrapper => AllPlayerData;
+        public PlayerDataWrapper AllPlayerData { get; private set; }
+        public PlayerStats() { AllPlayerData = GunGameDataManager.LoadData<PlayerDataWrapper>(FileName); }
+        public PlayerStats(PlayerDataWrapper d)
+        {
+            AllPlayerData = d;
+        }
 
         [Serializable]
-        public class PlayerDataWrapper
+        public class PlayerDataWrapper : DataWrapper
         {
             public PlayerDataWrapper() { }
             public List<PlayerData> Players { get; set; } = new List<PlayerData>();
             public List<ScoreData> Scores { get; set; } = new List<ScoreData>();
             public List<RoundData> Rounds { get; set; } = new List<RoundData>();
+
+            public void AddScores(List<PlayerData> PlayerList, List<ScoreData> GameResults, RoundData RoundInfo)
+            {
+                foreach (var plr in PlayerList)
+                {
+                    if (Players.TryGetFirstIndex(x => x.UserID == plr.UserID, out int plrIndex))
+                        Players.ElementAt(plrIndex).Nickname = plr.Nickname;
+                    else
+                        Players.Add(plr);
+                }
+                Scores.AddRange(GameResults);
+                Rounds.Add(RoundInfo);
+            }
+
+            public void RemovePlayer(List<string> uIDs)
+            {
+                foreach (var uID in uIDs)
+                    RemovePlayer(uID);
+            }
+            public void RemovePlayer(string uID)
+            {
+                Players.RemoveAll(x => x.UserID.Equals(uID));
+                Scores.RemoveAll(x => x.UserID.Equals(uID));
+            }
         }
+
 
         [Serializable]
         public class PlayerData

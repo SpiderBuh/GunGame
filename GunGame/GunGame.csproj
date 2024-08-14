@@ -33,12 +33,14 @@
   <ItemGroup>
     <Compile Include="Commands\ForceFlags.cs" />
     <Compile Include="Commands\FixPlayerCommand.cs" />
-    <Compile Include="Commands\GetLeaderboardCommand.cs" />
     <Compile Include="Commands\InitializeFirearms.cs" />
     <Compile Include="Commands\TestReadFirearms.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
     <Compile Include="Components\GGPlayer.cs" />
     <Compile Include="Components\TimedObject.cs" />
+    <Compile Include="DataSaving\ConfigObject.cs" />
+    <Compile Include="DataSaving\DataWrapper.cs" />
+    <Compile Include="DataSaving\GGConfig.cs" />
     <Compile Include="DataSaving\PlayerStats.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="GunGameEventCommand.cs" />

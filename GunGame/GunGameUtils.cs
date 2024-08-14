@@ -254,7 +254,7 @@ namespace GunGame
         {
             FFA = ffa;
             zone = targetZone;
-            WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(WeaponAttachments.FilePath);
+            //WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(WeaponAttachments.FileName);
             //AllWeapons = ProcessTier(Tier1, (byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
             AllWeapons = ProcessTier((byte)(Mathf.Clamp(numKills, 2, 255) - 1)).Concat(FinalTier).ToList();
 
@@ -318,7 +318,7 @@ namespace GunGame
         {
             List<Gat> tier = new List<Gat>();
             for (int i = 0; i < target; i++)
-                tier.Add(WeaponData.GetRandomGat());
+                tier.Add(((WeaponDataWrapper)WeaponData.Wrapper).GetRandomGat());
             return tier;
         }
         /*public List<Gat> ProcessTier(List<Gat> tier, byte target)
@@ -666,8 +666,8 @@ namespace GunGame
             }
             //GunGameDataManager.AddScores(playersData, scores, round);
             //GunGameDataManager.UserScrub(dnts);
-            WeaponData.UpdateRankings(AllWeapons, Convert.ToSingle(SortedPlayers.Values.Average(x => x.PlayerInfo.totKills / x.PlayerInfo.totDeaths)));
-            GunGameDataManager.SaveData(WeaponData, WeaponAttachments.FilePath);
+            ((WeaponDataWrapper)WeaponData.Wrapper).UpdateRankings(AllWeapons, Convert.ToSingle(SortedPlayers.Values.Average(x => x.PlayerInfo.totKills / x.PlayerInfo.totDeaths)));
+            GunGameDataManager.SaveData(WeaponData);
             Server.SendBroadcast(endStats.RoundScreen1(), 10);
             Server.SendBroadcast(endStats.RoundScreen2(), 10);// + "\n(Type \".ggScores\" in your console to see the leaderboard)", 10);
             Firearm firearm = plr.AddItem(ItemType.GunLogicer) as Firearm;

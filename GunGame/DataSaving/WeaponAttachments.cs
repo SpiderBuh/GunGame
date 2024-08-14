@@ -10,12 +10,18 @@ using static GunGame.GunGameUtils;
 
 namespace GunGame.DataSaving
 {
-    public class WeaponAttachments
+    public class WeaponAttachments : ConfigObject
     {
-        public const string FilePath = "GunGameWeaponData.xml";
+        public override string FileName => "GunGameWeaponData.xml";
+        public override DataWrapper Wrapper => WeaponData;
+        public WeaponDataWrapper WeaponData { get; private set; }
+        public WeaponAttachments() { WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(FileName); }
+        public WeaponAttachments(WeaponDataWrapper d) { 
+            WeaponData = d;
+        }
 
         [Serializable]
-        public class WeaponDataWrapper
+        public class WeaponDataWrapper : DataWrapper
         {
             public WeaponDataWrapper() { }
             public WeaponDataWrapper(List<ggWeapon> weapons)
@@ -26,7 +32,6 @@ namespace GunGame.DataSaving
             public Gat GetRandomGat(bool weighted = true, bool stack = true)
             {
                 Random rnd = new Random();
-                // Calculate the total weight (sum of all rankings)
                 float totalWeight = 0;
                 foreach (var item in Weapons)
                 {
@@ -36,29 +41,23 @@ namespace GunGame.DataSaving
                         totalWeight += item.AverageRanking();
                 }
 
-                // Generate a random number between 0 and totalWeight
                 float randomNumber = Convert.ToSingle(rnd.NextDouble() * totalWeight);
 
-                // Select an element based on the random number
-                //float cumulativeWeight = 0;
                 foreach (var item in Weapons)
                 {
                     if (weighted)
                         randomNumber -= item.TempRanking;
-                    //cumulativeWeight += item.TempRanking;
                     else
                         randomNumber -= item.AverageRanking();
-                    //cumulativeWeight += item.AverageRanking();
                     if (randomNumber < 0)
                     {
                         if (stack)
                             item.TimesChosen++;
-                            //item.TempRanking = Math.Max(0.01f, item.TempRanking - 25);
                         return new Gat(item.Item, item.GetRandomAttachments(0, true, weighted, stack));
                     }
                 }
 
-                // Fallback
+                // This (hopefully) shouldn't run
                 return new Gat(ItemType.KeycardJanitor, Convert.ToUInt32(randomNumber));
             }
             public void UpdateRankings(List<Gat> gats, float averageGameKD)
@@ -71,6 +70,45 @@ namespace GunGame.DataSaving
                             break;
                         }
             }
+            public bool InitializeFirearms()
+            {
+                try
+                {
+                    int count = 0;
+                    List<ggWeapon> allFirearms = new List<ggWeapon>();
+                    foreach (ItemType item in new List<ItemType>
+            {
+                ItemType.GunCOM15,
+                ItemType.MicroHID,
+                ItemType.GunE11SR,
+                ItemType.GunCrossvec,
+                ItemType.GunFSP9,
+                ItemType.GunLogicer,
+                ItemType.GunCOM18,
+                ItemType.GunRevolver,
+                ItemType.GunAK,
+                ItemType.GunShotgun,
+                ItemType.ParticleDisruptor,
+                ItemType.GunCom45,
+                ItemType.Jailbird,
+                ItemType.GunFRMG0,
+                ItemType.GunA7
+        })
+                    {
+                        allFirearms.Add(new ggWeapon(item));
+                        count++;
+
+                    }
+                    GunGameDataManager.SaveData(new WeaponAttachments(new WeaponDataWrapper(allFirearms)));
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    return false;
+                }
+            }
+
+
         }
 
         [Serializable]
@@ -116,7 +154,6 @@ namespace GunGame.DataSaving
                 }
                 else
                     Slots = new List<ggAttachmentSlot>() { new ggAttachmentSlot(AttachmentSlot.Unassigned, new List<ggAttachment>() { new ggAttachment(AttachmentName.None) }) };
-                //TempRanking = Slots.Average(x => x.AverageRanking());
             }
             /// <param name="nonrandomAttachments">An attachment code with all 0's for slots that will be randomised. Leave as 0 to randomize everything.</param>
             /// <param name="validate">Call the AttachmentsUtils.ValidateAttachmentsCode method before returning.</param>
@@ -205,7 +242,6 @@ namespace GunGame.DataSaving
             public uint GetRandomWeightedAttachment(bool stack = true)
             {
                 Random rnd = new Random();
-                // Calculate the total weight (sum of all rankings)
                 float totalWeight = 0;
                 foreach (var item in SlotAttachments)
                 {
@@ -215,11 +251,8 @@ namespace GunGame.DataSaving
                         totalWeight += item.Ranking;
                 }
 
-                // Generate a random number between 0 and totalWeight
                 float randomNumber = (float)(rnd.NextDouble() * totalWeight);
 
-                // Select an element based on the random number
-                //float cumulativeWeight = 0;
                 for (int i = 0; i < SlotAttachments.Count; i++)
                 {
                     ggAttachment item = SlotAttachments[i];
@@ -231,12 +264,10 @@ namespace GunGame.DataSaving
                     {
                         if (stack)
                             SlotAttachments[i].TimesChosen++;
-                        //item.TempRanking = Math.Max(0.01f, item.TempRanking - 25);
                         return (uint)1 << i;
                     }
                 }
 
-                //Fallback
                 return 1;
             }
 
@@ -246,7 +277,7 @@ namespace GunGame.DataSaving
                 if (match != -1)
                     SlotAttachments[match].UpdateRanking(kdPerCapita, averageGameKD);
             }
-            internal float AverageRanking(bool weighted = false) //Internal due to the average ranking of a slot without the context of every other slot doesn't really make sense
+            internal float AverageRanking(bool weighted = false)
             {
                 if (weighted)
                     return SlotAttachments.Average(x => x.TempRanking);
@@ -282,5 +313,7 @@ namespace GunGame.DataSaving
                 return AttachmentName.ToString();
             }
         }
+
+
     }
 }
