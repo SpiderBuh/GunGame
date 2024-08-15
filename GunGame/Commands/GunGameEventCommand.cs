@@ -1,21 +1,11 @@
 ﻿using CommandSystem;
-using Footprinting;
-using InventorySystem;
-using InventorySystem.Items;
-using InventorySystem.Items.Pickups;
-using InventorySystem.Items.Usables.Scp244;
-using LightContainmentZoneDecontamination;
-using MapGeneration;
-using Mirror;
 using PluginAPI.Core;
 using System;
 using System.Linq;
-using UnityEngine;
-using Utils;
 using static GunGame.GunGameUtils;
 using static GunGame.Plugin;
 
-namespace GunGame
+namespace GunGame.Commands
 {
 
     [CommandHandler(typeof(RemoteAdminCommandHandler))]
@@ -41,10 +31,6 @@ namespace GunGame
                     (arguments.Count > 1 ? charZone(arguments.ElementAt(1).ToUpper()[0]) : charZone('L')),
                     ((arguments.Count > 2 && int.TryParse(arguments.ElementAt(2), out int parsedValue)) ? parsedValue : 20)
                     );
-                //GG.currRound = (arguments.Count > 3 && int.TryParse(arguments.ElementAt(3), out int roundSet)) ? roundSet : 0;
-
-                /*if (4 < arguments.Count && arguments.ElementAt(4).ToUpper() == "Y")
-                    AllWeapons.ShuffleList();*/
 
                 GG.Start();
 

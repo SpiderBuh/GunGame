@@ -16,11 +16,15 @@ namespace GunGame.DataSaving
         [Serializable]
         public class GGConfigOptions : DataWrapper 
         {
-            public bool TeamsFriendlyFire;
-            public bool PunishTeamFF;
+            public GGConfigOptions() { }
+            public bool TeamsFriendlyFire { get; set; } = false;
+            public bool PunishTeamFF { get; set; } = false;
+            public bool PunishAccident { get; set; } = false;
+            public bool BlockFallDamage { get; set; } = true;
+            public uint MaxBodies { get; set; } = 75;
+            public byte MaxStages { get; set; } = 30;
             //TODO:
             //playable zones
-            //max stages
         }
     }
 }

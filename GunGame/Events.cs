@@ -31,7 +31,7 @@ namespace GunGame
             GG = null;
             bodies = 0;
         }
-        int bodies = 0;
+        uint bodies = 0;
         public static FacilityZone trgtZone = FacilityZone.Surface;
 
         [PluginEvent(ServerEventType.RoundStart)]
@@ -43,7 +43,7 @@ namespace GunGame
 
             trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
 
-            int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, 30);
+            int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, Config.Options.MaxStages);
             GG = new GunGameUtils(ffa, trgtZone, trgtKills);
 
             GG.Start();
@@ -62,11 +62,11 @@ namespace GunGame
         {
             if (!GameInProgress || args.Player == null || args.Player.IsServer) return true;
             var plr = args.Player;
-            var atckr = args.Attacker ?? plr;//Server.Instance;
+            var atckr = args.Attacker ?? plr;
             KillFeed.KillType type = FFA ? KillFeed.KillType.FriendlyFire : 0;
 
-            if ((args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id) return false;
-
+            if (Config.Options.BlockFallDamage && (args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id)
+                return false;
 
             if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return true;
@@ -80,7 +80,8 @@ namespace GunGame
                 {
                     type |= KillFeed.KillType.FriendlyFire;
                     plr.ReceiveHint("Shrimply a krill issue", 3);
-                    //RemoveScore(plr); //Removes a score if a player dies to natural means
+                    if (Config.Options.PunishAccident)
+                        GG.RemoveScore(plr);
                 }
                 else
                 {
@@ -94,12 +95,15 @@ namespace GunGame
                         AllWeapons[atckrStats.PlayerInfo.Score].kills++;
                         GG.AddScore(atckr);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
-                        //    if (downgrade)
-                        //        GG.RemoveScore(plr);
+                    }
+                    else
+                    {
+                        atckr.ReceiveHint($"You killed {plr.Nickname}... \n<alpha=#A0>(They were on your team!)", 2);
+                        if (Config.Options.PunishTeamFF)
+                            GG.RemoveScore(atckr);
                     }
                 }
 
-                
                 KillList.Add(new KillInfo(atckr.Nickname, plr.Nickname, type));
                 GG.SendKills();
             }
@@ -118,42 +122,43 @@ namespace GunGame
                 NetworkServer.Spawn(medkit.gameObject);
             }
 
-                bodies++;
-            if (bodies >= 75)
+            bodies++;
+            if (bodies >= Config.Options.MaxBodies)
             {
                 BasicRagdoll[] array = (from r in UnityEngine.Object.FindObjectsOfType<BasicRagdoll>()
                                         orderby r.Info.CreationTime descending
                                         select r).ToArray();
-                for (int i = 0; i < 25; i++)
+                uint purge = Config.Options.MaxBodies / 3;
+                for (int i = 0; i < purge; i++)
                 {
                     NetworkServer.Destroy(array[i].gameObject);
                 }
-                bodies -= 25;
+                bodies -= purge;
             }
             return true;
         }
 
 
         [PluginEvent(ServerEventType.PlayerDropItem)]
-        public bool DropItem(PlayerDropItemEvent args) //Stops items from being dropped
+        public bool DropItem(PlayerDropItemEvent args) //Stops players from dropping most items
         {
             return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
         [PluginEvent(ServerEventType.PlayerThrowItem)]
-        public bool ThrowItem(PlayerThrowItemEvent args) //Stops items from being thrown
+        public bool ThrowItem(PlayerThrowItemEvent args) //Stops players from throwing most items
         {
             return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
         [PluginEvent(ServerEventType.PlayerDropAmmo)]
-        public bool DropAmmo(PlayerDropAmmoEvent args) //Stops ammo from being dropped 
+        public bool DropAmmo(PlayerDropAmmoEvent args) //Stops players from dropping ammo 
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.PlayerSearchPickup)]
-        public bool PlayerPickup(PlayerSearchPickupEvent args)
+        public bool PlayerPickup(PlayerSearchPickupEvent args) //Stops players from picking up most items
         {
             var itemID = args.Item.Info.ItemId;
             if (!GameInProgress || args.Player.IsTutorial)
@@ -170,8 +175,8 @@ namespace GunGame
             var plr = args.Player;
             GG.AssignTeam(plr);
             plr.SendBroadcast("<b><color=red>Welcome to GunGame!</color></b> \nRace to the final weapon!", 10, shouldClearPrevious: true);
-            //   if (plr.DoNotTrack)
-            //       plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the round if this is still the case.\nAny existing scores will be deleted as well.</color>", 15);
+            if (plr.DoNotTrack)
+                plr.ReceiveHint("<color=red>WARNING: You have DNT enabled.\nYour score will not be saved at the end of the roundcase.\nAny existing scores will be deleted as well!</color>", 15);
             MEC.Timing.CallDelayed(3, () =>
             {
                 GG.SpawnPlayer(plr);
@@ -204,25 +209,25 @@ namespace GunGame
         }
 
         [PluginEvent(ServerEventType.PlayerInteractElevator)]
-        public bool PlayerInteractElevator(PlayerInteractElevatorEvent args)
+        public bool PlayerInteractElevator(PlayerInteractElevatorEvent args) //Stops elevator interactions
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.PlayerHandcuff)]
-        public bool PlayerHandcuff(PlayerHandcuffEvent args)
+        public bool PlayerHandcuff(PlayerHandcuffEvent args) //Stops handcuffing
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
         [PluginEvent(ServerEventType.TeamRespawn)]
-        public bool RespawnCancel(TeamRespawnEvent args)
+        public bool RespawnCancel(TeamRespawnEvent args) //Stops respawn waves
         {
             return !GameInProgress;
         }
 
         [PluginEvent(ServerEventType.PlayerEscape)]
-        public void PlayerEscapeEvent(PlayerEscapeEvent args)
+        public void PlayerEscapeEvent(PlayerEscapeEvent args) //Unique escape mechanics
         {
             if (!GameInProgress)
                 return;
@@ -242,13 +247,12 @@ namespace GunGame
         }
 
         [PluginEvent(ServerEventType.Scp914UpgradeInventory)]
-        public bool InventoryUpgrade(Scp914UpgradeInventoryEvent args)
+        public bool InventoryUpgrade(Scp914UpgradeInventoryEvent args) //Stops most 914 upgrades
         {
             var plr = args.Player ?? Server.Instance;
             if (!GameInProgress || plr.IsTutorial)
                 return true;
 
-            var knob = args.KnobSetting;
             return plr.CurrentItem.Category == ItemCategory.Medical;
         }
 
@@ -283,7 +287,7 @@ namespace GunGame
         }
 
         [PluginEvent(ServerEventType.PlayerInteractScp330)]
-        public void InfiniteCandy(PlayerInteractScp330Event args)
+        public void InfiniteCandy(PlayerInteractScp330Event args) //Only take roughly 10%!
         {
             var plr = args.Player ?? Server.Instance;
             if (!GameInProgress || plr.IsTutorial)

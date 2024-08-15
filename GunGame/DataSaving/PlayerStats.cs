@@ -24,20 +24,20 @@ namespace GunGame.DataSaving
         {
             public PlayerDataWrapper() { }
             public List<PlayerData> Players { get; set; } = new List<PlayerData>();
-            public List<ScoreData> Scores { get; set; } = new List<ScoreData>();
-            public List<RoundData> Rounds { get; set; } = new List<RoundData>();
 
-            public void AddScores(List<PlayerData> PlayerList, List<ScoreData> GameResults, RoundData RoundInfo)
+            public void AddScores(List<PlayerData> PlayerList)
             {
                 foreach (var plr in PlayerList)
                 {
-                    if (Players.TryGetFirstIndex(x => x.UserID == plr.UserID, out int plrIndex))
+                    if (Players.TryGetFirstIndex(x => x.UserID == plr.UserID, out int plrIndex)) {
                         Players.ElementAt(plrIndex).Nickname = plr.Nickname;
+                        Players.ElementAt(plrIndex).Kills += plr.Kills;
+                        Players.ElementAt(plrIndex).Deaths += plr.Deaths;
+                        Players.ElementAt(plrIndex).GamesPlayed += plr.GamesPlayed;
+                    }
                     else
                         Players.Add(plr);
                 }
-                Scores.AddRange(GameResults);
-                Rounds.Add(RoundInfo);
             }
 
             public void RemovePlayer(List<string> uIDs)
@@ -48,10 +48,8 @@ namespace GunGame.DataSaving
             public void RemovePlayer(string uID)
             {
                 Players.RemoveAll(x => x.UserID.Equals(uID));
-                Scores.RemoveAll(x => x.UserID.Equals(uID));
             }
         }
-
 
         [Serializable]
         public class PlayerData
@@ -59,6 +57,11 @@ namespace GunGame.DataSaving
             public PlayerData() { }
             public string UserID { get; set; } = string.Empty;
             public string Nickname { get; set; } = string.Empty;
+            public int Kills { get; set; } = 0;
+            public int Deaths { get; set; } = 0;
+            public int GamesPlayed { get; set; } = 0;
+            [XmlIgnore]
+            public float KDR => ((float)Kills) / Deaths;
             public PlayerData(Player plr)
             {
                 UserID = plr.UserId;
@@ -69,59 +72,23 @@ namespace GunGame.DataSaving
                 UserID = UID;
                 Nickname = Nick;
             }
-        }
+            public static bool operator==(PlayerData a, PlayerData b) { return a.UserID.Equals(b.UserID); }
+            public static bool operator!=(PlayerData a, PlayerData b) { return !a.UserID.Equals(b.UserID); }
+            public static PlayerData operator+(PlayerData a, PlayerData b) { return new PlayerData(b.UserID, b.Nickname) { Kills = a.Kills + b.Kills, Deaths = a.Deaths + b.Deaths, GamesPlayed = a.GamesPlayed + b.GamesPlayed };  }
 
-        [Serializable]
-        public class ScoreData
-        {
-            public ScoreData() { }
-            public string UserID { get; set; } = string.Empty;
-            public string RoundID { get; set; } = string.Empty;
-            public int kills { get; set; } = 0;
-            public int deaths { get; set; } = 0;
-            public int Score { get; set; } = -1;
-            public int Position { get; set; } = -1;
-            public bool NTF { get; set; } = false;
-
-            public ScoreData(string userID, int kills, int deaths, int position, bool ntf)
+            public override string ToString()
             {
-                UserID = userID;
-                Position = position;
-                NTF = ntf;
-                this.kills = kills;
-                this.deaths = deaths;
+                return Nickname + "\t" + KDR;
             }
 
-            public ScoreData(string userID, string roundID, int score, int position, bool ntf)
+            public override bool Equals(object obj)
             {
-                UserID = userID;
-                RoundID = roundID;
-                Score = score;
-                Position = position;
-                NTF = ntf;
+                return this==(PlayerData)obj;
             }
-        }
 
-        [Serializable]
-        public class RoundData
-        {
-            public RoundData() { }
-            public int RoundNumber { get; set; } = -1;
-            public bool FFA { get; set; } = false;
-            public FacilityZone Zone { get; set; } = FacilityZone.None;
-            public byte NumGuns { get; set; } = 0;
-            public DateTime RoundDate { get; set; } = DateTime.Now;
-            [XmlElement]
-            public string RoundID => RoundDate.ToString("MMMddHHmm") + "#" + RoundNumber;
-
-            public RoundData(int roundNumber, bool ffa, FacilityZone zone, byte numGuns, DateTime roundDate, out string roundID)
+            public override int GetHashCode()
             {
-                RoundNumber = roundNumber;
-                FFA = ffa;
-                Zone = zone;
-                NumGuns = numGuns;
-                RoundDate = roundDate;
-                roundID = RoundID;
+                return UserID.GetHashCode();
             }
         }
     }

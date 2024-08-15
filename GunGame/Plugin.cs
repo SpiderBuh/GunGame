@@ -16,7 +16,7 @@ namespace GunGame
         public static PlayerStats PlayerStats { get; private set; }
         public static GGConfig Config { get; private set; }
 
-        [PluginEntryPoint("Gun Game", "1.1.1", "Gamemode Gun Game recreated in SCP SL", "SpiderBuh")]
+        [PluginEntryPoint("Gun Game", "1.1.2", "Gamemode Gun Game recreated in SCP SL", "SpiderBuh")]
         public void OnPluginStart()
         {
             Log.Info($"Guns are gaming...");

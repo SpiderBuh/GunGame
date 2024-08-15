@@ -5,26 +5,30 @@ namespace GunGame.DataSaving
 {
     public static class GunGameDataManager
     {
-        public static void SaveData(ConfigObject conf)
-        {
-            XmlSerializer serializer = new XmlSerializer(conf.Wrapper.GetType());
-            using (TextWriter writer = new StreamWriter(Plugin.ConfigFilePath + conf.FileName))
+        public static void SaveData<T>(T data, string fileName) {
+            XmlSerializer serializer = new XmlSerializer(typeof(T));
+            using (TextWriter writer = new StreamWriter(Plugin.ConfigFilePath + fileName))
             {
-                serializer.Serialize(writer, conf.Wrapper);
+                serializer.Serialize(writer, data);
             }
         }
-        public static T LoadData<T>(string ConfigFile)
+        public static void SaveData(ConfigObject conf)
         {
-            if (File.Exists(Plugin.ConfigFilePath + ConfigFile))
+            SaveData(conf.Wrapper, conf.FileName);
+        }
+        public static T LoadData<T>(string configFile)
+        {
+            if (File.Exists(Plugin.ConfigFilePath + configFile))
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(T));
-                using (TextReader reader = new StreamReader(Plugin.ConfigFilePath + ConfigFile))
+                using (TextReader reader = new StreamReader(Plugin.ConfigFilePath + configFile))
                 {
                     return (T)serializer.Deserialize(reader);
                 }
             }
             else
             {
+                SaveData<T>(default, configFile);
                 return default;
             }
         }

@@ -1,9 +1,11 @@
-﻿using InventorySystem;
+﻿using GunGame.Commands;
+using InventorySystem;
 using InventorySystem.Items;
 using InventorySystem.Items.Firearms;
 using InventorySystem.Items.Firearms.Attachments;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
 using static GunGame.GunGameUtils;
@@ -15,7 +17,15 @@ namespace GunGame.DataSaving
         public override string FileName => "GunGameWeaponData.xml";
         public override DataWrapper Wrapper => WeaponData;
         public WeaponDataWrapper WeaponData { get; private set; }
-        public WeaponAttachments() { WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(FileName); }
+        public WeaponAttachments() { 
+            if (File.Exists(Plugin.ConfigFilePath + FileName))
+                WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(FileName);
+            else
+            {
+                WeaponData = new WeaponDataWrapper();
+                WeaponData.InitializeFirearms();
+            }
+        }
         public WeaponAttachments(WeaponDataWrapper d) { 
             WeaponData = d;
         }
@@ -75,7 +85,7 @@ namespace GunGame.DataSaving
                 try
                 {
                     int count = 0;
-                    List<ggWeapon> allFirearms = new List<ggWeapon>();
+                    Weapons = new List<ggWeapon>();
                     foreach (ItemType item in new List<ItemType>
             {
                 ItemType.GunCOM15,
@@ -95,11 +105,11 @@ namespace GunGame.DataSaving
                 ItemType.GunA7
         })
                     {
-                        allFirearms.Add(new ggWeapon(item));
+                        Weapons.Add(new ggWeapon(item));
                         count++;
 
                     }
-                    GunGameDataManager.SaveData(new WeaponAttachments(new WeaponDataWrapper(allFirearms)));
+                    GunGameDataManager.SaveData(new WeaponAttachments(new WeaponDataWrapper(Weapons)));
                     return true;
                 }
                 catch (Exception e)
