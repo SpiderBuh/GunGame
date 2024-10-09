@@ -2,8 +2,7 @@
 using PluginAPI.Core;
 using System;
 using System.Linq;
-using static GunGame.GunGameEventCommand;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Commands
@@ -36,7 +35,7 @@ namespace GunGame.Commands
                     return false;
                 response += $"\n{plr.LogName} found";
 
-                if (!AllPlayers.TryGetValue(plr.UserId, out var plrInfo))
+                if (!GG.AllPlayers.TryGetValue(plr.UserId, out var plrInfo))
                     return false;
                 response += "\nplayer info found";
 

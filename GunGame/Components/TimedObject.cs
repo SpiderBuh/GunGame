@@ -3,13 +3,13 @@ using UnityEngine;
 
 namespace GunGame.Components
 {
-    public class TimedObject : MonoBehaviour
+    public class TimedObject : Component
     {
-        public TimedObject(float time, GameObject obj)
+        public void StartCountdown(float delayS = 45)
         {
-            MEC.Timing.CallDelayed(time, () =>
+            MEC.Timing.CallDelayed(delayS, () =>
             {
-                NetworkServer.UnSpawn(obj);
+                NetworkServer.UnSpawn(gameObject);
             });
         }
     }

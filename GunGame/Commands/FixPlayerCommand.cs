@@ -2,8 +2,7 @@
 using PluginAPI.Core;
 using System;
 using System.Linq;
-using static GunGame.GunGameEventCommand;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Commands
@@ -42,7 +41,7 @@ namespace GunGame.Commands
                     response += $"\nPlayer is {plr.Role}, they are exempt from playing in this state.";
                     return false;
                 }
-                if (!AllPlayers.TryGetValue(plr.UserId, out var plrInfo))
+                if (!GG.AllPlayers.TryGetValue(plr.UserId, out var plrInfo))
                 {
                     response += "\nPlayer not found in list, assigning team";
                     GG.AssignTeam(plr);

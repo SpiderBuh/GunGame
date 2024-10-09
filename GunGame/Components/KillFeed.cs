@@ -2,7 +2,7 @@
 using PluginAPI.Core;
 using System;
 using UnityEngine;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Components

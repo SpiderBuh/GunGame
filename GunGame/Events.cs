@@ -17,7 +17,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 using Utils;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame
@@ -27,7 +27,6 @@ namespace GunGame
         [PluginEvent(ServerEventType.RoundRestart)]
         public void OnRoundRestart()
         {
-            GameInProgress = false;
             GG = null;
             bodies = 0;
         }
@@ -35,7 +34,7 @@ namespace GunGame
         public static FacilityZone trgtZone = FacilityZone.Surface;
 
         [PluginEvent(ServerEventType.RoundStart)]
-        public void OnRoundStart(RoundStartEvent args)
+        public void OnRoundStart()
         {
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
@@ -44,7 +43,7 @@ namespace GunGame
             trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
 
             int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, Config.Options.MaxStages);
-            GG = new GunGameUtils(ffa, trgtZone, trgtKills);
+            GG = new GunGameGame(ffa, trgtZone, trgtKills);
 
             GG.Start();
         }
@@ -63,20 +62,20 @@ namespace GunGame
             if (!GameInProgress || args.Player == null || args.Player.IsServer) return true;
             var plr = args.Player;
             var atckr = args.Attacker ?? plr;
-            KillFeed.KillType type = FFA ? KillFeed.KillType.FriendlyFire : 0;
+            KillFeed.KillType type = GG.FFA ? KillFeed.KillType.FriendlyFire : 0;
 
             if (Config.Options.BlockFallDamage && (args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id)
                 return false;
 
-            if (!AllPlayers.TryGetValue(plr.UserId, out var plrStats))
+            if (!GG.AllPlayers.TryGetValue(plr.UserId, out var plrStats))
                 return true;
             try
             {
                 plr.ClearInventory();
                 plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 plrStats.PlayerInfo.totDeaths++;
-                AllWeapons[plrStats.PlayerInfo.Score].deaths++;
-                if (atckr.IsServer || atckr == plr || !AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
+                GG.AllWeapons[plrStats.PlayerInfo.Score].deaths++;
+                if (atckr.IsServer || atckr == plr || !GG.AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     type |= KillFeed.KillType.FriendlyFire;
                     plr.ReceiveHint("Shrimply a krill issue", 3);
@@ -88,11 +87,11 @@ namespace GunGame
                     plr.AddItem(ItemType.Medkit);
                     plr.ReceiveHint($"{atckr.Nickname} killed you \n<alpha=#A0>({atckrStats.PlayerInfo.killsLeft})", 2);
 
-                    if (FFA || atckrStats.PlayerInfo.IsNtfTeam != plrStats.PlayerInfo.IsNtfTeam)
+                    if (GG.FFA || atckrStats.PlayerInfo.IsNtfTeam != plrStats.PlayerInfo.IsNtfTeam)
                     {
                         type |= atckrStats.PlayerInfo.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
                         atckrStats.PlayerInfo.totKills++;
-                        AllWeapons[atckrStats.PlayerInfo.Score].kills++;
+                        GG.AllWeapons[atckrStats.PlayerInfo.Score].kills++;
                         GG.AddScore(atckr);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
                     }
@@ -117,8 +116,9 @@ namespace GunGame
             {
                 ItemPickupBase medkit = UnityEngine.Object.Instantiate(med.PickupDropModel, plr.Position, UnityEngine.Random.rotation);
                 medkit.NetworkInfo = new PickupSyncInfo(ItemType.Medkit, med.Weight);
-                var timer = medkit.gameObject.AddComponent(typeof(TimedObject));
-                timer = new TimedObject(45, medkit.gameObject);
+                ((TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject))).StartCountdown(45);
+                //TimedObject timer = (TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject));
+                //timer.StartCountdown();
                 NetworkServer.Spawn(medkit.gameObject);
             }
 
@@ -273,7 +273,7 @@ namespace GunGame
                     plr.EffectsManager.DisableAllEffects(); break;
 
                 case Scp914KnobSetting.OneToOne:
-                    if (!FFA)
+                    if (!GG.FFA)
                         break;
 
                     plr.ReferenceHub.roleManager.ServerSetRole(RoleTypeId.Scientist, RoleChangeReason.RemoteAdmin, RoleSpawnFlags.None);

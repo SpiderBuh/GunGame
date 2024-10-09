@@ -2,7 +2,7 @@
 using PluginAPI.Core;
 using System;
 using System.Linq;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Commands
@@ -26,7 +26,7 @@ namespace GunGame.Commands
         {
             try
             {
-                GG = new GunGameUtils(
+                GG = new GunGameGame(
                     (arguments.Count > 0 && arguments.ElementAt(0).ToUpper() == "Y"),
                     (arguments.Count > 1 ? charZone(arguments.ElementAt(1).ToUpper()[0]) : charZone('L')),
                     ((arguments.Count > 2 && int.TryParse(arguments.ElementAt(2), out int parsedValue)) ? parsedValue : 20)
@@ -34,7 +34,7 @@ namespace GunGame.Commands
 
                 GG.Start();
 
-                response = $"GunGame event has begun. \nFFA: {FFA} | Zone: {zone} | Levels: {GG.NumKillsReq}";
+                response = $"GunGame event has begun. \nFFA: {GG.FFA} | Zone: {GG.zone} | Levels: {GG.NumKillsReq}";
                 return true;
             }
             catch (Exception e)

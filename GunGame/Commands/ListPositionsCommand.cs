@@ -30,7 +30,7 @@ namespace GunGame.Commands
             int i = 1;
             foreach (var item in plrs)
             {
-                string ordinal = GunGameUtils.ordinal(i);
+                string ordinal = GunGameGame.ordinal(i);
                 response += $"\n{(indent && plr.Nickname.Equals(item.Key) ? " # " : "")} - {i}{ordinal}: {item.Key} [{item.Value}]";
                 i++;
             }

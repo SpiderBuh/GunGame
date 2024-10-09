@@ -8,7 +8,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
-using static GunGame.GunGameUtils;
+using Utils.NonAllocLINQ;
+using static GunGame.GunGameGame;
 
 namespace GunGame.DataSaving
 {
@@ -17,16 +18,27 @@ namespace GunGame.DataSaving
         public override string FileName => "GunGameWeaponData.xml";
         public override DataWrapper Wrapper => WeaponData;
         public WeaponDataWrapper WeaponData { get; private set; }
-        public WeaponAttachments() { 
+        public WeaponAttachments()
+        {
             if (File.Exists(Plugin.ConfigFilePath + FileName))
-                WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(FileName);
+            {
+                try
+                {
+                    WeaponData = GunGameDataManager.LoadData<WeaponDataWrapper>(FileName);
+                }
+                catch { 
+                WeaponData = new WeaponDataWrapper();
+                WeaponData.InitializeFirearms();
+                }
+            }
             else
             {
                 WeaponData = new WeaponDataWrapper();
                 WeaponData.InitializeFirearms();
             }
         }
-        public WeaponAttachments(WeaponDataWrapper d) { 
+        public WeaponAttachments(WeaponDataWrapper d)
+        {
             WeaponData = d;
         }
 
@@ -73,12 +85,10 @@ namespace GunGame.DataSaving
             public void UpdateRankings(List<Gat> gats, float averageGameKD)
             {
                 foreach (var gat in gats)
-                    for (int i = 0; i < AllWeapons.Count; i++)
-                        if (Weapons[i].Item == gat.ItemType)
-                        {
-                            Weapons[i].UpdateRanking((gat.kills / gat.deaths) / gat.usedBy, averageGameKD, gat.Mod);
-                            break;
-                        }
+                    if (Weapons.TryGetFirstIndex(x => x.Item == gat.ItemType, out var i))
+                    {
+                        Weapons[i].UpdateRanking(((float)gat.kills / gat.deaths) / gat.usedBy, averageGameKD, gat.Mod);
+                    }
             }
             public bool InitializeFirearms()
             {

@@ -1,11 +1,13 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Xml.Serialization;
 
 namespace GunGame.DataSaving
 {
     public static class GunGameDataManager
     {
-        public static void SaveData<T>(T data, string fileName) {
+        public static void SaveData<T>(T data, string fileName)
+        {
             XmlSerializer serializer = new XmlSerializer(typeof(T));
             using (TextWriter writer = new StreamWriter(Plugin.ConfigFilePath + fileName))
             {
@@ -20,10 +22,19 @@ namespace GunGame.DataSaving
         {
             if (File.Exists(Plugin.ConfigFilePath + configFile))
             {
-                XmlSerializer serializer = new XmlSerializer(typeof(T));
-                using (TextReader reader = new StreamReader(Plugin.ConfigFilePath + configFile))
+                try
                 {
-                    return (T)serializer.Deserialize(reader);
+                    XmlSerializer serializer = new XmlSerializer(typeof(T));
+                    using (TextReader reader = new StreamReader(Plugin.ConfigFilePath + configFile))
+                    {
+                        return (T)serializer.Deserialize(reader);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    SaveData<T>(default, configFile);
+                    return default;
                 }
             }
             else

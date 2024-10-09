@@ -1,6 +1,6 @@
 ﻿using PluginAPI.Core;
 using UnityEngine;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Components
@@ -11,7 +11,7 @@ namespace GunGame.Components
         public string Nickname;
         public string Id;
         public PlrInfo PlayerInfo;
-        public bool isNTF => PlayerInfo.IsNtfTeam;
+        public bool IsNTF => PlayerInfo.IsNtfTeam;
         public GGPlayer(Player plr, PlrInfo info)
         {
             PlayerHub = plr.ReferenceHub;
@@ -30,7 +30,7 @@ namespace GunGame.Components
             if (!PlayerInfo.flags.HasFlag(GGPlayerFlags.spawned))
                 return;
 
-            if (isNTF || FFA)
+            if (IsNTF || GG.FFA)
                 GG.NTFTiles.Add(GetGridPos());
             else
                 GG.ChaosTiles.Add(GetGridPos());

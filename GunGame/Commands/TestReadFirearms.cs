@@ -3,7 +3,7 @@ using GunGame.DataSaving;
 using System;
 using System.Collections.Generic;
 using static GunGame.DataSaving.WeaponAttachments;
-using static GunGame.GunGameUtils;
+using static GunGame.GunGameGame;
 using static GunGame.Plugin;
 
 namespace GunGame.Commands

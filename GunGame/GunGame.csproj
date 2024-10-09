@@ -43,7 +43,7 @@
     <Compile Include="DataSaving\PlayerStats.cs" />
     <Compile Include="Events.cs" />
     <Compile Include="Commands\GunGameEventCommand.cs" />
-    <Compile Include="GunGameUtils.cs" />
+    <Compile Include="GunGameGame.cs" />
     <Compile Include="Components\KillFeed.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
