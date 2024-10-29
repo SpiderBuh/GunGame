@@ -19,7 +19,7 @@ namespace GunGame.Commands
 
         public bool SanitizeResponse => true;
 
-        public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S/O)", "Kills to win? [27]", "Round number", /*"Full Shuffle? (y/[n])"*/ };
+        public string[] Usage { get; } = { "FFA? (y/[n])", "Zone? ([L]/H/E/S/O)", "Kills to win? [27]",};
 
 
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)

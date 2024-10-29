@@ -17,7 +17,7 @@ namespace GunGame.Commands
 
         public string[] Usage { get; } = { "Target", "Flags int value" };
 
-        public string Description => "Forces player flags to whatever is specified";
+        public string Description => "Forces gungame player flags to whatever is specified";
         public bool Execute(ArraySegment<string> arguments, ICommandSender sender, out string response)
         {
             response = "\nCommand recieved";

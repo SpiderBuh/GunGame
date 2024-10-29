@@ -33,22 +33,18 @@
   <ItemGroup>
     <Compile Include="Commands\ForceFlags.cs" />
     <Compile Include="Commands\FixPlayerCommand.cs" />
-    <Compile Include="Commands\TestReadFirearms.cs" />
     <Compile Include="Commands\ListPositionsCommand.cs" />
+    <Compile Include="Commands\EditWeaponList.cs" />
     <Compile Include="Components\GGPlayer.cs" />
     <Compile Include="Components\TimedObject.cs" />
-    <Compile Include="DataSaving\ConfigObject.cs" />
-    <Compile Include="DataSaving\DataWrapper.cs" />
-    <Compile Include="DataSaving\GGConfig.cs" />
-    <Compile Include="DataSaving\PlayerStats.cs" />
-    <Compile Include="Events.cs" />
+    <Compile Include="Config.cs" />
+    <Compile Include="Game\Events.cs" />
     <Compile Include="Commands\GunGameEventCommand.cs" />
-    <Compile Include="GunGameGame.cs" />
+    <Compile Include="Game\GunGameGame.cs" />
     <Compile Include="Components\KillFeed.cs" />
+    <Compile Include="Game\Weapons.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="DataSaving\GunGameDataManager.cs" />
-    <Compile Include="DataSaving\WeaponAttachments.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
@@ -82,9 +78,7 @@
     </Reference>
     <Reference Include="Pooling, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null" />
     <Reference Include="System" />
-    <Reference Include="System.Xml" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Xml.Serialization" />
+    <Reference Include="System.Numerics, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL" />
     <Reference Include="UnityEngine">
       <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\SCP Secret Laboratory Dedicated Server\SCPSL_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>

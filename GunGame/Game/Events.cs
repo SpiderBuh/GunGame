@@ -1,8 +1,6 @@
 ﻿using CustomPlayerEffects;
 using GunGame.Components;
-using InventorySystem;
-using InventorySystem.Items.Pickups;
-using InventorySystem.Items.Usables;
+using GunGame.Game;
 using MapGeneration;
 using Mirror;
 using PlayerRoles;
@@ -24,31 +22,33 @@ namespace GunGame
 {
     public class Events
     {
-        [PluginEvent(ServerEventType.RoundRestart)]
-        public void OnRoundRestart()
+        [PluginEvent]
+        public void OnRoundRestart(RoundRestartEvent args)
         {
-            GG = null;
+            GG = new GunGameGame();
             bodies = 0;
         }
         uint bodies = 0;
         public static FacilityZone trgtZone = FacilityZone.Surface;
 
-        [PluginEvent(ServerEventType.RoundStart)]
-        public void OnRoundStart()
+        [PluginEvent]
+        public void OnRoundStart(RoundStartEvent args)
         {
+            if (!Plugin.Config.AutoGunGame) return;
+
             System.Random rnd = new System.Random();
             var plrCount = Player.GetPlayers().Count();
             bool ffa = !(plrCount > 16) && (plrCount < 8 || rnd.Next(0, 2) == 1);
 
             trgtZone = (FacilityZone)(((int)trgtZone + rnd.Next(1, 4) - 1) % 4 + 1); //Random zone excluding the previous one
 
-            int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, Config.Options.MaxStages);
+            int trgtKills = Mathf.Clamp(plrCount * 5 - 10, 10, Plugin.Config.MaxStages);
             GG = new GunGameGame(ffa, trgtZone, trgtKills);
 
             GG.Start();
         }
 
-        [PluginEvent(ServerEventType.PlayerDamage), PluginPriority(LoadPriority.Highest)]
+        [PluginEvent, PluginPriority(LoadPriority.Highest)]
         public bool PlayerDamage(PlayerDamageEvent args)
         {
             if (!GameInProgress || args.Target == null || args.Target.IsServer) return true;
@@ -56,7 +56,7 @@ namespace GunGame
             return true;
         }
 
-        [PluginEvent(ServerEventType.PlayerDying), PluginPriority(LoadPriority.High)]
+        [PluginEvent, PluginPriority(LoadPriority.High)]
         public bool PlayerDeath(PlayerDyingEvent args)
         {
             if (!GameInProgress || args.Player == null || args.Player.IsServer) return true;
@@ -64,7 +64,7 @@ namespace GunGame
             var atckr = args.Attacker ?? plr;
             KillFeed.KillType type = GG.FFA ? KillFeed.KillType.FriendlyFire : 0;
 
-            if (Config.Options.BlockFallDamage && (args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id)
+            if (Plugin.Config.BlockFallDamage && (args.DamageHandler is UniversalDamageHandler UDH) && UDH.TranslationId == DeathTranslations.Falldown.Id)
                 return false;
 
             if (!GG.AllPlayers.TryGetValue(plr.UserId, out var plrStats))
@@ -74,12 +74,12 @@ namespace GunGame
                 plr.ClearInventory();
                 plrStats.PlayerInfo.flags &= ~GGPlayerFlags.validFL | GGPlayerFlags.preFL | GGPlayerFlags.finalLevel;
                 plrStats.PlayerInfo.totDeaths++;
-                GG.AllWeapons[plrStats.PlayerInfo.Score].deaths++;
+                GG.RoundWeapons[plrStats.PlayerInfo.Score].deaths++;
                 if (atckr.IsServer || atckr == plr || !GG.AllPlayers.TryGetValue(atckr.UserId, out var atckrStats))
                 {
                     type |= KillFeed.KillType.FriendlyFire;
                     plr.ReceiveHint("Shrimply a krill issue", 3);
-                    if (Config.Options.PunishAccident)
+                    if (Plugin.Config.PunishAccident)
                         GG.RemoveScore(plr);
                 }
                 else
@@ -91,14 +91,14 @@ namespace GunGame
                     {
                         type |= atckrStats.PlayerInfo.IsNtfTeam ? KillFeed.KillType.NtfKill : 0;
                         atckrStats.PlayerInfo.totKills++;
-                        GG.AllWeapons[atckrStats.PlayerInfo.Score].kills++;
+                        GG.RoundWeapons[atckrStats.PlayerInfo.Score].kills++;
                         GG.AddScore(atckr);
                         atckr.ReceiveHint($"You killed {plr.Nickname} \n<alpha=#A0>({plrStats.PlayerInfo.killsLeft})", 2);
                     }
                     else
                     {
                         atckr.ReceiveHint($"You killed {plr.Nickname}... \n<alpha=#A0>(They were on your team!)", 2);
-                        if (Config.Options.PunishTeamFF)
+                        if (Plugin.Config.PunishTeamFF)
                             GG.RemoveScore(atckr);
                     }
                 }
@@ -112,23 +112,23 @@ namespace GunGame
                 GG.SpawnPlayer(plr);
             });
 
-            if (InventoryItemLoader.TryGetItem<Medkit>(ItemType.Medkit, out var med))
-            {
-                ItemPickupBase medkit = UnityEngine.Object.Instantiate(med.PickupDropModel, plr.Position, UnityEngine.Random.rotation);
-                medkit.NetworkInfo = new PickupSyncInfo(ItemType.Medkit, med.Weight);
-                ((TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject))).StartCountdown(45);
-                //TimedObject timer = (TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject));
-                //timer.StartCountdown();
-                NetworkServer.Spawn(medkit.gameObject);
-            }
+            //if (InventoryItemLoader.TryGetItem<Medkit>(ItemType.Medkit, out var med))
+            //{
+            //    ItemPickupBase medkit = UnityEngine.Object.Instantiate(med.PickupDropModel, plr.Position, UnityEngine.Random.rotation);
+            //    medkit.NetworkInfo = new PickupSyncInfo(ItemType.Medkit, med.Weight);
+            //    ((TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject))).StartCountdown(45);
+            //    //TimedObject timer = (TimedObject)medkit.gameObject.AddComponent(typeof(TimedObject));
+            //    //timer.StartCountdown();
+            //    NetworkServer.Spawn(medkit.gameObject);
+            //}
 
             bodies++;
-            if (bodies >= Config.Options.MaxBodies)
+            if (bodies >= Plugin.Config.MaxBodies)
             {
                 BasicRagdoll[] array = (from r in UnityEngine.Object.FindObjectsOfType<BasicRagdoll>()
                                         orderby r.Info.CreationTime descending
                                         select r).ToArray();
-                uint purge = Config.Options.MaxBodies / 3;
+                uint purge = Plugin.Config.MaxBodies / 3;
                 for (int i = 0; i < purge; i++)
                 {
                     NetworkServer.Destroy(array[i].gameObject);
@@ -139,25 +139,25 @@ namespace GunGame
         }
 
 
-        [PluginEvent(ServerEventType.PlayerDropItem)]
+        [PluginEvent]
         public bool DropItem(PlayerDropItemEvent args) //Stops players from dropping most items
         {
             return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
-        [PluginEvent(ServerEventType.PlayerThrowItem)]
+        [PluginEvent]
         public bool ThrowItem(PlayerThrowItemEvent args) //Stops players from throwing most items
         {
             return !GameInProgress || args.Player.IsTutorial || args.Item.ItemTypeId == ItemType.Medkit;
         }
 
-        [PluginEvent(ServerEventType.PlayerDropAmmo)]
+        [PluginEvent]
         public bool DropAmmo(PlayerDropAmmoEvent args) //Stops players from dropping ammo 
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
-        [PluginEvent(ServerEventType.PlayerSearchPickup)]
+        [PluginEvent]
         public bool PlayerPickup(PlayerSearchPickupEvent args) //Stops players from picking up most items
         {
             var itemID = args.Item.Info.ItemId;
@@ -167,7 +167,7 @@ namespace GunGame
             return itemID == ItemType.SCP330 || itemID == ItemType.Painkillers || itemID == ItemType.Medkit || itemID == ItemType.Adrenaline || itemID == ItemType.GrenadeFlash;//Allows only certain pickups
         }
 
-        [PluginEvent(ServerEventType.PlayerJoined)]
+        [PluginEvent]
         public void PlayerJoined(PlayerJoinedEvent args) //Adding new player to the game 
         {
             if (!GameInProgress || args.Player.IsServer)
@@ -183,14 +183,14 @@ namespace GunGame
             });
         }
 
-        [PluginEvent(ServerEventType.PlayerLeft)]
+        [PluginEvent]
         public void PlayerLeft(PlayerLeftEvent args) //Removing player that left from list
         {
             if (GameInProgress)
                 GG.RemovePlayer(args.Player.UserId);
         }
 
-        [PluginEvent(ServerEventType.PlayerChangeRole)]
+        [PluginEvent]
         public void ChangeRole(PlayerChangeRoleEvent args) //Failsafes for admin shenanegens 
         {
             if (!GameInProgress || !args.ChangeReason.Equals(RoleChangeReason.RemoteAdmin))
@@ -208,25 +208,25 @@ namespace GunGame
                 });
         }
 
-        [PluginEvent(ServerEventType.PlayerInteractElevator)]
+        [PluginEvent]
         public bool PlayerInteractElevator(PlayerInteractElevatorEvent args) //Stops elevator interactions
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
-        [PluginEvent(ServerEventType.PlayerHandcuff)]
+        [PluginEvent]
         public bool PlayerHandcuff(PlayerHandcuffEvent args) //Stops handcuffing
         {
             return !GameInProgress || args.Player.IsTutorial;
         }
 
-        [PluginEvent(ServerEventType.TeamRespawn)]
+        [PluginEvent]
         public bool RespawnCancel(TeamRespawnEvent args) //Stops respawn waves
         {
             return !GameInProgress;
         }
 
-        [PluginEvent(ServerEventType.PlayerEscape)]
+        [PluginEvent]
         public void PlayerEscapeEvent(PlayerEscapeEvent args) //Unique escape mechanics
         {
             if (!GameInProgress)
@@ -242,11 +242,13 @@ namespace GunGame
                 plr.AddItem(ItemType.ArmorHeavy);
                 plr.AddItem(ItemType.Painkillers);
                 plr.AddItem(ItemType.Adrenaline);
+                foreach (ItemType ammo in WeaponManager.AllAmmo)
+                    plr.SetAmmo(ammo, 420);
             });
 
         }
 
-        [PluginEvent(ServerEventType.Scp914UpgradeInventory)]
+        [PluginEvent]
         public bool InventoryUpgrade(Scp914UpgradeInventoryEvent args) //Stops most 914 upgrades
         {
             var plr = args.Player ?? Server.Instance;
@@ -256,7 +258,7 @@ namespace GunGame
             return plr.CurrentItem.Category == ItemCategory.Medical;
         }
 
-        [PluginEvent(ServerEventType.Scp914ProcessPlayer)]
+        [PluginEvent]
         public void PlayerUpgrade(Scp914ProcessPlayerEvent args) //Custom effects for player upgrading
         {
             var plr = args.Player ?? Server.Instance;
@@ -286,7 +288,7 @@ namespace GunGame
             }
         }
 
-        [PluginEvent(ServerEventType.PlayerInteractScp330)]
+        [PluginEvent]
         public void InfiniteCandy(PlayerInteractScp330Event args) //Only take roughly 10%!
         {
             var plr = args.Player ?? Server.Instance;

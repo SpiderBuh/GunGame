@@ -16,7 +16,7 @@ namespace GunGame.Commands
 
         public string[] Usage { get; } = { "Target (leave blank for self)" };
 
-        public string Description => "Runs through some checks to fix a player if they aren't spawning";
+        public string Description => "Runs through some checks to fix a player if they aren't spawning in gungame";
 
         public bool FixOthers = true;
 
